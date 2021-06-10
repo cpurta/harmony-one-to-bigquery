@@ -5,6 +5,7 @@
 package mock_bigquery
 
 import (
+	context "context"
 	reflect "reflect"
 
 	model "github.com/cpurta/harmony-one-to-bigquery/internal/model"
@@ -34,45 +35,59 @@ func (m *MockBigQueryClient) EXPECT() *MockBigQueryClientMockRecorder {
 	return m.recorder
 }
 
-// GetMostRecentBlockNumber mocks base method.
-func (m *MockBigQueryClient) GetMostRecentBlockNumber() (int64, error) {
+// Close mocks base method.
+func (m *MockBigQueryClient) Close() error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMostRecentBlockNumber")
+	ret := m.ctrl.Call(m, "Close")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Close indicates an expected call of Close.
+func (mr *MockBigQueryClientMockRecorder) Close() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockBigQueryClient)(nil).Close))
+}
+
+// GetMostRecentBlockNumber mocks base method.
+func (m *MockBigQueryClient) GetMostRecentBlockNumber(ctx context.Context) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMostRecentBlockNumber", ctx)
 	ret0, _ := ret[0].(int64)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetMostRecentBlockNumber indicates an expected call of GetMostRecentBlockNumber.
-func (mr *MockBigQueryClientMockRecorder) GetMostRecentBlockNumber() *gomock.Call {
+func (mr *MockBigQueryClientMockRecorder) GetMostRecentBlockNumber(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMostRecentBlockNumber", reflect.TypeOf((*MockBigQueryClient)(nil).GetMostRecentBlockNumber))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMostRecentBlockNumber", reflect.TypeOf((*MockBigQueryClient)(nil).GetMostRecentBlockNumber), ctx)
 }
 
 // InsertBlock mocks base method.
-func (m *MockBigQueryClient) InsertBlock(block *model.Block) error {
+func (m *MockBigQueryClient) InsertBlock(block *model.Block, ctx context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InsertBlock", block)
+	ret := m.ctrl.Call(m, "InsertBlock", block, ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // InsertBlock indicates an expected call of InsertBlock.
-func (mr *MockBigQueryClientMockRecorder) InsertBlock(block interface{}) *gomock.Call {
+func (mr *MockBigQueryClientMockRecorder) InsertBlock(block, ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertBlock", reflect.TypeOf((*MockBigQueryClient)(nil).InsertBlock), block)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertBlock", reflect.TypeOf((*MockBigQueryClient)(nil).InsertBlock), block, ctx)
 }
 
 // InsertTransactions mocks base method.
-func (m *MockBigQueryClient) InsertTransactions(transactions []*model.Transaction) error {
+func (m *MockBigQueryClient) InsertTransactions(transactions []*model.Transaction, ctx context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InsertTransactions", transactions)
+	ret := m.ctrl.Call(m, "InsertTransactions", transactions, ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // InsertTransactions indicates an expected call of InsertTransactions.
-func (mr *MockBigQueryClientMockRecorder) InsertTransactions(transactions interface{}) *gomock.Call {
+func (mr *MockBigQueryClientMockRecorder) InsertTransactions(transactions, ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertTransactions", reflect.TypeOf((*MockBigQueryClient)(nil).InsertTransactions), transactions)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertTransactions", reflect.TypeOf((*MockBigQueryClient)(nil).InsertTransactions), transactions, ctx)
 }
