@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/cpurta/harmony-one-to-bigquery/internal/clients/bigquery"
+	bq "github.com/cpurta/harmony-one-to-bigquery/internal/clients/bigquery/client"
 	"github.com/cpurta/harmony-one-to-bigquery/internal/clients/harmony"
 	"github.com/cpurta/harmony-one-to-bigquery/internal/clients/harmony/client"
 	"github.com/cpurta/harmony-one-to-bigquery/internal/model"
@@ -16,6 +17,9 @@ type BackfillRunner struct {
 	NodeURL              string
 	GoogleCloudProjectID string
 	DryRun               bool
+	DatasetID            string
+	BlocksTableID        string
+	TxnsTableID          string
 }
 
 func (runner *BackfillRunner) Run(cli *cli.Context) error {
@@ -36,15 +40,19 @@ func (runner *BackfillRunner) Run(cli *cli.Context) error {
 
 	harmonyClient = client.NewHarmonyOneClient(runner.NodeURL, http.DefaultClient)
 
+	if bigQueryClient, err = bq.NewBigQueryClient(ctx, runner.GoogleCloudProjectID, runner.DatasetID, runner.BlocksTableID, runner.TxnsTableID); err != nil {
+		return err
+	}
+
 	if header, err = harmonyClient.GetLatestHeader(); err != nil {
 		logger.Error("unable to get the most recent block header from the harmony blockchain client", zap.Error(err))
 		return err
 	}
 
-	// if backfillUpTo, err = bigQueryClient.GetMostRecentBlockNumber(ctx); err != nil {
-	// 	logger.Error("unable to get the most recent block number stored in BigQuery", zap.Error(err))
-	// 	return err
-	// }
+	if backfillUpTo, err = bigQueryClient.GetMostRecentBlockNumber(ctx); err != nil {
+		logger.Error("unable to get the most recent block number stored in BigQuery", zap.Error(err))
+		return err
+	}
 
 	currentBlock = header.BlockNumber
 

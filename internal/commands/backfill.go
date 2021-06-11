@@ -30,6 +30,24 @@ func BackfillCommand() *cli.Command {
 				Usage:       "pull historical blockchain data but do not attempt to insert it into BigQuery",
 				Destination: &backfillRunner.DryRun,
 			},
+			&cli.StringFlag{
+				Name:        "gcp-dataset-id",
+				Usage:       "the dataset id used in GCP to store blockchain data in BigQuery",
+				Destination: &backfillRunner.DatasetID,
+				Value:       "crypto_harmony",
+			},
+			&cli.StringFlag{
+				Name:        "gcp-blocks-table-id",
+				Usage:       "the blocks table id used in GCP to store blockchain data in BigQuery",
+				Destination: &backfillRunner.BlocksTableID,
+				Value:       "blocks",
+			},
+			&cli.StringFlag{
+				Name:        "gcp-txns-table-id",
+				Usage:       "the transactions table id used in GCP to store blockchain data in BigQuery",
+				Destination: &backfillRunner.TxnsTableID,
+				Value:       "transactions",
+			},
 		},
 		Action: backfillRunner.Run,
 	}
