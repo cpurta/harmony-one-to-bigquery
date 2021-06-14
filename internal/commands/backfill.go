@@ -16,12 +16,14 @@ func BackfillCommand() *cli.Command {
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "node-url",
+				EnvVars:     []string{"NODE_URL"},
 				Usage:       "the url of the node used to pull historical data from",
 				Destination: &backfillRunner.NodeURL,
 				Value:       "https://api.s0.t.hmny.io",
 			},
 			&cli.StringFlag{
 				Name:        "gcp-project-id",
+				EnvVars:     []string{"GCP_PROJECT_ID"},
 				Usage:       "the project id used in GCP to store blockchain data in BigQuery",
 				Destination: &backfillRunner.GoogleCloudProjectID,
 			},
@@ -32,21 +34,38 @@ func BackfillCommand() *cli.Command {
 			},
 			&cli.StringFlag{
 				Name:        "gcp-dataset-id",
+				EnvVars:     []string{"GCP_DATASET_ID"},
 				Usage:       "the dataset id used in GCP to store blockchain data in BigQuery",
 				Destination: &backfillRunner.DatasetID,
 				Value:       "crypto_harmony",
 			},
 			&cli.StringFlag{
 				Name:        "gcp-blocks-table-id",
+				EnvVars:     []string{"GCP_BLOCKS_TABLE_ID"},
 				Usage:       "the blocks table id used in GCP to store blockchain data in BigQuery",
 				Destination: &backfillRunner.BlocksTableID,
 				Value:       "blocks",
 			},
 			&cli.StringFlag{
 				Name:        "gcp-txns-table-id",
+				EnvVars:     []string{"GCP_TXNS_TABLE_ID"},
 				Usage:       "the transactions table id used in GCP to store blockchain data in BigQuery",
 				Destination: &backfillRunner.TxnsTableID,
 				Value:       "transactions",
+			},
+			&cli.Int64Flag{
+				Name:        "from-block",
+				EnvVars:     []string{"FROM_BLOCK"},
+				Usage:       "pull historical block chain data from a specified block number (note: must be use with to-block flag)",
+				Destination: &backfillRunner.FromBlock,
+				Value:       int64(-1),
+			},
+			&cli.Int64Flag{
+				Name:        "to-block",
+				EnvVars:     []string{"TO_BLOCK"},
+				Usage:       "pull historical block chain data up to specified block number (note: must be use with from-block flag)",
+				Destination: &backfillRunner.ToBlock,
+				Value:       int64(-1),
 			},
 		},
 		Action: backfillRunner.Run,

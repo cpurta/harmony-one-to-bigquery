@@ -3,6 +3,8 @@ package client
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"cloud.google.com/go/bigquery"
 	bq "github.com/cpurta/harmony-one-to-bigquery/internal/clients/bigquery"
@@ -39,7 +41,7 @@ func NewBigQueryClient(ctx context.Context, projectID string, datasetID string, 
 func (client *bigQueryClient) GetMostRecentBlockNumber(ctx context.Context) (int64, error) {
 	var (
 		latestBlockNumber = int64(0)
-		query             = fmt.Sprintf("SELECT MAX(number) FROM `%s.%s.%s` LIMIT 1", client.projectID, client.datasetID, client.blocksTableID)
+		query             = fmt.Sprintf("SELECT number FROM `%s.%s.%s` ORDER BY timestamp DESC LIMIT 1", client.projectID, client.datasetID, client.blocksTableID)
 		bqQuery           = client.client.Query(query)
 		job               *bigquery.Job
 		status            *bigquery.JobStatus
@@ -85,7 +87,9 @@ func (client *bigQueryClient) GetMostRecentBlockNumber(ctx context.Context) (int
 			break
 		}
 
-		latestBlockNumber = row[0].(int64)
+		if latestBlockNumber, err = hexToInt(row[0].(string)); err != nil {
+			return latestBlockNumber, err
+		}
 	}
 
 	return latestBlockNumber, nil
@@ -113,4 +117,11 @@ func (client *bigQueryClient) InsertTransactions(transactions []*model.Transacti
 
 func (client *bigQueryClient) Close() error {
 	return client.client.Close()
+}
+
+func hexToInt(hexString string) (int64, error) {
+	str := strings.Replace(hexString, "0x", "", -1)
+	str = strings.Replace(str, "0X", "", -1)
+
+	return strconv.ParseInt(str, 16, 64)
 }
