@@ -39,7 +39,7 @@ func (runner *BackfillRunner) Run(cli *cli.Context) error {
 		return err
 	}
 
-	harmonyClient = client.NewHarmonyOneClient(runner.NodeURL, http.DefaultClient)
+	harmonyClient = client.NewHarmonyOneClient(runner.NodeURL, http.DefaultClient, logger.Named("harmony_client"))
 
 	if bigQueryClient, err = bq.NewBigQueryClient(ctx, runner.GoogleCloudProjectID, runner.DatasetID, runner.BlocksTableID, runner.TxnsTableID); err != nil {
 		return err
