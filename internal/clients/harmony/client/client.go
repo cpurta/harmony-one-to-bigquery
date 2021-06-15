@@ -89,7 +89,7 @@ func (client *harmonyOneClient) GetBlockByNumber(blockNumber int64) (*model.Bloc
 
 	for i := 0; statusCode != http.StatusOK; i++ {
 		if rpcResponse, err = client.makeHTTPRequest(rpcRequest); err != nil {
-			client.logger.Error("recieved non-200 response code from harmony rpc", zap.Int64("block_number", blockNumber), zap.Duration("sleep_duration", sleepDuration), zap.Int("response_code", rpcResponse.StatusCode), zap.Error(err))
+			client.logger.Error("recieved error when making getBlockByNumber rpc request", zap.Int64("block_number", blockNumber), zap.Duration("sleep_duration", sleepDuration), zap.Error(err))
 		}
 
 		statusCode = rpcResponse.StatusCode
