@@ -14,16 +14,19 @@ import (
 	"go.uber.org/zap"
 )
 
+// latestHeaderResponse wraps a Header response object into the result object
 type latestHeaderResponse struct {
 	Result *model.Header `json:"result"`
 }
 
+// blockNumberResponse wraps a Block response object into the result object
 type blockNumberResponse struct {
 	Result *model.Block `json:"result"`
 }
 
 var _ harmony.HarmonyClient = &harmonyOneClient{}
 
+// harmonyOneClient is the implementation of the HarmonyOneClient interface.
 type harmonyOneClient struct {
 	httpClient  *http.Client
 	nodeURL     string
@@ -32,6 +35,8 @@ type harmonyOneClient struct {
 	logger      *zap.Logger
 }
 
+// NewHarmonyOneClient creates a new HarmonyOneClient implementation that will connect
+// to a given Harmony One node to pull header and blockchain data.
 func NewHarmonyOneClient(nodeURL string, httpClient *http.Client, logger *zap.Logger) *harmonyOneClient {
 	return &harmonyOneClient{
 		nodeURL:     nodeURL,
@@ -42,6 +47,8 @@ func NewHarmonyOneClient(nodeURL string, httpClient *http.Client, logger *zap.Lo
 	}
 }
 
+// GetLatestHeader will return the latest block Header that has been submitted to
+// the Harmony One blockchain.
 func (client *harmonyOneClient) GetLatestHeader() (*model.Header, error) {
 	var (
 		rpcRequest     *http.Request
@@ -72,6 +79,7 @@ func (client *harmonyOneClient) GetLatestHeader() (*model.Header, error) {
 	return headerResponse.Result, nil
 }
 
+// getBlockByNumber will return all Block data associated with the given block.
 func (client *harmonyOneClient) GetBlockByNumber(blockNumber int64) (*model.Block, error) {
 	var (
 		rpcRequest          *http.Request
@@ -112,6 +120,8 @@ func (client *harmonyOneClient) GetBlockByNumber(blockNumber int64) (*model.Bloc
 	return blockNumberResponse.Result, nil
 }
 
+// buildRequest will build a pointer http.Request based on the Harmony One RPC API
+// documentation.
 func (client *harmonyOneClient) buildRequest(method string, params []interface{}) (*http.Request, error) {
 	client.queryIDLock.Lock()
 
@@ -144,6 +154,8 @@ func (client *harmonyOneClient) buildRequest(method string, params []interface{}
 	return httpRequest, nil
 }
 
+// makeHTTPRequest will send a given http request and return the resulting response
+// or an error.
 func (client *harmonyOneClient) makeHTTPRequest(req *http.Request) (*http.Response, error) {
 	var (
 		response *http.Response
