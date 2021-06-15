@@ -53,20 +53,6 @@ func BackfillCommand() *cli.Command {
 				Destination: &backfillRunner.TxnsTableID,
 				Value:       "transactions",
 			},
-			&cli.Int64Flag{
-				Name:        "from-block",
-				EnvVars:     []string{"FROM_BLOCK"},
-				Usage:       "pull historical block chain data from a specified block number (note: must be use with to-block flag)",
-				Destination: &backfillRunner.FromBlock,
-				Value:       int64(-1),
-			},
-			&cli.Int64Flag{
-				Name:        "to-block",
-				EnvVars:     []string{"TO_BLOCK"},
-				Usage:       "pull historical block chain data up to specified block number (note: must be use with from-block flag)",
-				Destination: &backfillRunner.ToBlock,
-				Value:       int64(-1),
-			},
 		},
 		Action: backfillRunner.Run,
 	}
