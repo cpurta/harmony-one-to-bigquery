@@ -99,6 +99,14 @@ func (client *harmonyOneClient) GetBlockByNumber(blockNumber int64) (*model.Bloc
 
 	if rpcResponse.StatusCode != http.StatusOK {
 		client.logger.Error("recieved non-200 response status code", zap.Int("response_code", rpcResponse.StatusCode))
+
+		if rpcResponse.StatusCode >= 500 {
+			time.Sleep(time.Second * 5)
+
+			if rpcResponse, err = client.makeHTTPRequest(rpcRequest); err != nil {
+				client.logger.Error("recieved error when making timeout retry request", zap.Int64("block_number", blockNumber), zap.Error(err))
+			}
+		}
 	}
 
 	defer rpcResponse.Body.Close()
