@@ -1,4 +1,7 @@
 # harmony-one-to-bigquery
+
+
+
 A golang application to import Harmony ONE blockchain data into GCP BigQuery. The
 overall objective of this program is to request the most recent block number submitted
 to the Harmony One blockchain. Then retrieve the most recent blockchain data inserted
@@ -90,3 +93,46 @@ gcr.io/${PROJECT_ID}/hmy-bq-import             v1        acafe4ca74a5   10 hours
 ```
 
 ## Running
+
+#### Locally
+
+You can simply run the binary using the `backfill` command:
+
+```
+./bin/hmy-bq-import backfill --gcp-project-id $PROJECT_ID --help
+```
+
+#### Docker
+
+You can check that the docker image build works by running the following `docker run` command.
+
+```
+$ docker run -it --rm \
+  -e GOOGLE_APPLICTION_CREDENTIALS=/etc/hmy/harmonyone-gcp-bigquery.json \
+  -e GCP_PROJECT_ID=${PROJECT_ID \
+  gcr.io/${PROJECT_ID}/hmy-bq-import:v1
+```
+
+## Using Kubernetes
+
+Since this application is dockerized it can be run in Kubernetes. And this was deployed
+to GCP Kubernetes Engine to allow for the backfill to continuously run and keep the
+public dataset as close to realtime as possible.
+
+If you wish to run this application on Kubernetes in GCP a [quickstart guide](https://cloud.google.com/kubernetes-engine/docs/quickstart)
+will be able to help you do so.
+
+## Environment Variables
+
+| Env Var Name        | Description                                                                | Default Value            | Required |
+|---------------------|----------------------------------------------------------------------------|--------------------------|----------|
+| NODE_URL            | the url of the node used to pull historical data from                      | https://api.s0.t.hmny.io | N        |
+| GCP_PROJECT_ID      | the project id used in GCP to store blockchain data in BigQuery            |                          | Y        |
+| GCP_DATASET_ID      | the dataset id used in GCP to store blockchain data in BigQuery            | crypto_harmony           | N        |
+| GCP_BLOCKS_TABLE_ID | the blocks table id used in GCP to store blockchain data in BigQuery       | blocks                   | N        |
+| GCP_TXNS_TABLE_ID   | the transactions table id used in GCP to store blockchain data in BigQuery | transactions             | N        |
+| CONCURRENCY         | the number concurrent go routines pulling Harmony One blockchain data      | 1                        | N        |
+
+## LICENSE
+
+Mozilla Public License Version 2.0
