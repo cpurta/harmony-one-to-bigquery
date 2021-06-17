@@ -3,7 +3,6 @@ package client
 import (
 	"encoding/json"
 	"io/ioutil"
-	"math"
 	"net/http"
 	"strings"
 	"sync"
@@ -84,7 +83,6 @@ func (client *harmonyOneClient) GetBlockByNumber(blockNumber int64) (*model.Bloc
 	var (
 		rpcRequest          *http.Request
 		rpcResponse         *http.Response
-		statusCode          int
 		sleepDuration       time.Duration
 		responseBody        []byte
 		blockNumberResponse blockNumberResponse
@@ -95,16 +93,20 @@ func (client *harmonyOneClient) GetBlockByNumber(blockNumber int64) (*model.Bloc
 		return nil, err
 	}
 
-	for i := 0; statusCode != http.StatusOK; i++ {
-		if rpcResponse, err = client.makeHTTPRequest(rpcRequest); err != nil {
-			client.logger.Error("recieved error when making getBlockByNumber rpc request", zap.Int64("block_number", blockNumber), zap.Duration("sleep_duration", sleepDuration), zap.Error(err))
+	if rpcResponse, err = client.makeHTTPRequest(rpcRequest); err != nil {
+		client.logger.Error("recieved error when making getBlockByNumber rpc request", zap.Int64("block_number", blockNumber), zap.Duration("sleep_duration", sleepDuration), zap.Error(err))
+	}
+
+	if rpcResponse.StatusCode != http.StatusOK {
+		client.logger.Error("recieved non-200 response status code", zap.Int("response_code", rpcResponse.StatusCode))
+
+		if rpcResponse.StatusCode >= 500 {
+			time.Sleep(time.Second * 5)
+
+			if rpcResponse, err = client.makeHTTPRequest(rpcRequest); err != nil {
+				client.logger.Error("recieved error when making timeout retry request", zap.Int64("block_number", blockNumber), zap.Error(err))
+			}
 		}
-
-		statusCode = rpcResponse.StatusCode
-
-		sleepDuration = time.Second * time.Duration(int64(math.Pow(float64(2), float64(i))))
-
-		time.Sleep(sleepDuration)
 	}
 
 	defer rpcResponse.Body.Close()

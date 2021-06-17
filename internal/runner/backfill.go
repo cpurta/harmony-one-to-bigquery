@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"time"
+	"sync"
 
 	"github.com/cpurta/harmony-one-to-bigquery/internal/clients/bigquery"
 	bq "github.com/cpurta/harmony-one-to-bigquery/internal/clients/bigquery/client"
@@ -22,126 +22,125 @@ type BackfillRunner struct {
 	DatasetID            string
 	BlocksTableID        string
 	TxnsTableID          string
-	FromBlock            int64
-	ToBlock              int64
+	Concurrency          int
+	harmonyClient        harmony.HarmonyClient
+	bigQueryClient       bigquery.BigQueryClient
+	logger               *zap.Logger
+}
+
+type counter struct {
+	Count int64
+	Lock  *sync.Mutex
 }
 
 func (runner *BackfillRunner) Run(cli *cli.Context) error {
 	var (
-		harmonyClient  harmony.HarmonyClient
-		bigQueryClient bigquery.BigQueryClient
-		logger         *zap.Logger
-		ctx            = context.Background()
-		err            error
+		ctx = context.Background()
+		err error
 	)
 
-	if logger, err = zap.NewProduction(); err != nil {
+	if runner.logger, err = zap.NewProduction(); err != nil {
 		return err
 	}
 
-	harmonyClient = client.NewHarmonyOneClient(runner.NodeURL, http.DefaultClient, logger.Named("harmony_client"))
+	if runner.Concurrency <= 0 {
+		return errors.New("must specify concurrency > 0")
+	}
 
-	if bigQueryClient, err = bq.NewBigQueryClient(ctx, runner.GoogleCloudProjectID, runner.DatasetID, runner.BlocksTableID, runner.TxnsTableID); err != nil {
+	runner.harmonyClient = client.NewHarmonyOneClient(runner.NodeURL, http.DefaultClient, runner.logger.Named("harmony_client"))
+
+	if runner.bigQueryClient, err = bq.NewBigQueryClient(ctx, runner.GoogleCloudProjectID, runner.DatasetID, runner.BlocksTableID, runner.TxnsTableID); err != nil {
 		return err
 	}
 
-	// sanity check to catch from block specified but not to block (or visa versa)
-	if runner.FromBlock != int64(-1) && runner.ToBlock == int64(-1) {
-		return errors.New("must specify positive value --to-block value")
-	}
-
-	if runner.ToBlock != int64(-1) && runner.FromBlock == int64(-1) {
-		return errors.New("must specify positive value --from-block value")
-	}
-
-	// check if specified to backfill a portion otherwise default to latest
-	if runner.FromBlock != int64(-1) && runner.ToBlock != int64(-1) {
-		return runner.backfillPortion(ctx, harmonyClient, bigQueryClient, logger)
-	}
-
-	return runner.backfillFromLatest(ctx, harmonyClient, bigQueryClient, logger)
+	return runner.backfillFromLatest(ctx)
 }
 
-func (runner *BackfillRunner) backfillPortion(ctx context.Context, harmonyClient harmony.HarmonyClient, bigQueryClient bigquery.BigQueryClient, logger *zap.Logger) error {
-	var (
-		currentBlock = runner.FromBlock
-		totalBlocks  = runner.ToBlock - runner.FromBlock
-		start        = time.Now()
-		err          error
-	)
-
-	for ; currentBlock <= runner.ToBlock; currentBlock++ {
-		var block *model.Block
-
-		if block, err = harmonyClient.GetBlockByNumber(currentBlock); err != nil {
-			logger.Error("unable get block from harmony blockchain client", zap.Int64("block_number", currentBlock), zap.Error(err))
-			continue
-		}
-
-		if runner.DryRun {
-			logger.Info("received block", zap.Int64("block_number", currentBlock))
-			continue
-		}
-
-		if err = bigQueryClient.InsertBlock(block, ctx); err != nil {
-			logger.Error("unable to insert block into BigQuery", zap.Int64("block_number", currentBlock), zap.Error(err))
-		}
-
-		if err = bigQueryClient.InsertTransactions(block.Transactions, ctx); err != nil {
-			logger.Error("unable to insert block transactions into BigQuery", zap.Int64("block_number", currentBlock), zap.Error(err))
-		}
-	}
-
-	logger.Info("complete portion backfill", zap.Int64("total_blocks_backfilled", totalBlocks), zap.Duration("time_elapsed", time.Since(start)))
-
-	return nil
-}
-
-func (runner *BackfillRunner) backfillFromLatest(ctx context.Context, harmonyClient harmony.HarmonyClient, bigQueryClient bigquery.BigQueryClient, logger *zap.Logger) error {
+func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 	var (
 		header       *model.Header
-		currentBlock int64
 		backfillUpTo = int64(0)
-		err          error
+		counter      = &counter{
+			Lock: &sync.Mutex{},
+		}
+		wg  = &sync.WaitGroup{}
+		err error
 	)
 
-	if header, err = harmonyClient.GetLatestHeader(); err != nil {
-		logger.Error("unable to get the most recent block header from the harmony blockchain client", zap.Error(err))
+	if header, err = runner.harmonyClient.GetLatestHeader(); err != nil {
+		runner.logger.Error("unable to get the most recent block header from the harmony blockchain client", zap.Error(err))
 		return err
 	}
 
-	logger.Info("received current block header on hmy blockchain", zap.Int64("hmy_block_number", header.BlockNumber))
+	runner.logger.Info("received current block header on hmy blockchain", zap.Int64("hmy_block_number", header.BlockNumber))
 
-	if currentBlock, err = bigQueryClient.GetMostRecentBlockNumber(ctx); err != nil {
-		logger.Error("unable to get the most recent block number stored in BigQuery", zap.Error(err))
+	if counter.Count, err = runner.bigQueryClient.GetMostRecentBlockNumber(ctx); err != nil {
+		runner.logger.Error("unable to get the most recent block number stored in BigQuery", zap.Error(err))
 		return err
 	}
 
-	logger.Info("received most recent block number stored in BigQuery", zap.Int64("bq_block_number", currentBlock))
+	runner.logger.Info("received most recent block number stored in BigQuery", zap.Int64("bq_block_number", counter.Count))
 
 	backfillUpTo = header.BlockNumber
 
-	for ; currentBlock <= backfillUpTo; currentBlock++ {
-		var block *model.Block
+	for i := 0; i < runner.Concurrency; i++ {
+		wg.Add(1)
+		runner.logger.Info("spawning backfillBlocks go routine", zap.Int("routine_number", i))
+		go runner.backfillBlocks(ctx, counter, wg, backfillUpTo)
+	}
 
-		if block, err = harmonyClient.GetBlockByNumber(currentBlock); err != nil {
-			logger.Error("unable get block from harmony blockchain client", zap.Int64("block_number", currentBlock), zap.Error(err))
+	wg.Wait()
+
+	return nil
+}
+
+func (runner *BackfillRunner) backfillBlocks(ctx context.Context, counter *counter, wg *sync.WaitGroup, endBlock int64) {
+	defer wg.Done()
+
+	for {
+		var (
+			block *model.Block
+			err   error
+		)
+
+		counter.Lock.Lock()
+		currentBlock := counter.Count
+		counter.Count += 1
+		counter.Lock.Unlock()
+
+		if currentBlock == endBlock {
+			break
+		}
+
+		blockNumberLogger := runner.logger.With(zap.Int64("block_number", currentBlock))
+
+		if block, err = runner.harmonyClient.GetBlockByNumber(currentBlock); err != nil {
+			blockNumberLogger.Error("unable get block from harmony blockchain client", zap.Error(err))
+			continue
+		}
+
+		if currentBlock%1000 == 0 {
+			blockNumberLogger.Info("processed another 1000 blocks")
+		}
+
+		if runner.DryRun {
+			blockNumberLogger.Info("received block")
 			continue
 		}
 
 		if runner.DryRun {
-			logger.Info("received block", zap.Int64("block_number", currentBlock))
+			blockNumberLogger.Info("received block")
 			continue
 		}
 
-		if err = bigQueryClient.InsertBlock(block, ctx); err != nil {
-			logger.Error("unable to insert block into BigQuery", zap.Int64("block_number", currentBlock), zap.Error(err))
+		if err = runner.bigQueryClient.InsertBlock(block, ctx); err != nil {
+			blockNumberLogger.Error("unable to insert block into BigQuery", zap.Error(err))
 		}
 
-		if err = bigQueryClient.InsertTransactions(block.Transactions, ctx); err != nil {
-			logger.Error("unable to insert block transactions into BigQuery", zap.Int64("block_number", currentBlock), zap.Error(err))
+		if err = runner.bigQueryClient.InsertTransactions(block.Transactions, ctx); err != nil {
+			blockNumberLogger.Error("unable to insert block transactions into BigQuery", zap.Error(err))
 		}
 	}
 
-	return nil
+	runner.logger.Info("backfill block go routine finished")
 }
