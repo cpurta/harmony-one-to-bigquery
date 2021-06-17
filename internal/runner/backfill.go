@@ -2,7 +2,9 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"net/http"
+	"sync"
 
 	"github.com/cpurta/harmony-one-to-bigquery/internal/clients/bigquery"
 	bq "github.com/cpurta/harmony-one-to-bigquery/internal/clients/bigquery/client"
@@ -20,9 +22,15 @@ type BackfillRunner struct {
 	DatasetID            string
 	BlocksTableID        string
 	TxnsTableID          string
+	Concurrency          int
 	harmonyClient        harmony.HarmonyClient
 	bigQueryClient       bigquery.BigQueryClient
 	logger               *zap.Logger
+}
+
+type counter struct {
+	Count int64
+	Lock  *sync.Mutex
 }
 
 func (runner *BackfillRunner) Run(cli *cli.Context) error {
@@ -33,6 +41,10 @@ func (runner *BackfillRunner) Run(cli *cli.Context) error {
 
 	if runner.logger, err = zap.NewProduction(); err != nil {
 		return err
+	}
+
+	if runner.Concurrency <= 0 {
+		return errors.New("must specify concurrency > 0")
 	}
 
 	runner.harmonyClient = client.NewHarmonyOneClient(runner.NodeURL, http.DefaultClient, runner.logger.Named("harmony_client"))
@@ -47,9 +59,12 @@ func (runner *BackfillRunner) Run(cli *cli.Context) error {
 func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 	var (
 		header       *model.Header
-		currentBlock int64
 		backfillUpTo = int64(0)
-		err          error
+		counter      = &counter{
+			Lock: &sync.Mutex{},
+		}
+		wg  = &sync.WaitGroup{}
+		err error
 	)
 
 	if header, err = runner.harmonyClient.GetLatestHeader(); err != nil {
@@ -59,20 +74,45 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 
 	runner.logger.Info("received current block header on hmy blockchain", zap.Int64("hmy_block_number", header.BlockNumber))
 
-	if currentBlock, err = runner.bigQueryClient.GetMostRecentBlockNumber(ctx); err != nil {
+	if counter.Count, err = runner.bigQueryClient.GetMostRecentBlockNumber(ctx); err != nil {
 		runner.logger.Error("unable to get the most recent block number stored in BigQuery", zap.Error(err))
 		return err
 	}
 
-	runner.logger.Info("received most recent block number stored in BigQuery", zap.Int64("bq_block_number", currentBlock))
+	runner.logger.Info("received most recent block number stored in BigQuery", zap.Int64("bq_block_number", counter.Count))
 
 	backfillUpTo = header.BlockNumber
 
-	for ; currentBlock <= backfillUpTo; currentBlock++ {
+	for i := 0; i < runner.Concurrency; i++ {
+		wg.Add(1)
+		runner.logger.Info("spawning backfillBlocks go routine", zap.Int("routine_number", i))
+		go runner.backfillBlocks(ctx, counter, wg, backfillUpTo)
+	}
+
+	wg.Wait()
+
+	return nil
+}
+
+func (runner *BackfillRunner) backfillBlocks(ctx context.Context, counter *counter, wg *sync.WaitGroup, endBlock int64) {
+	defer wg.Done()
+
+	for {
 		var (
-			block             *model.Block
-			blockNumberLogger = runner.logger.With(zap.Int64("block_number", currentBlock))
+			block *model.Block
+			err   error
 		)
+
+		counter.Lock.Lock()
+		currentBlock := counter.Count
+		counter.Count += 1
+		counter.Lock.Unlock()
+
+		if currentBlock == endBlock {
+			break
+		}
+
+		blockNumberLogger := runner.logger.With(zap.Int64("block_number", currentBlock))
 
 		if block, err = runner.harmonyClient.GetBlockByNumber(currentBlock); err != nil {
 			blockNumberLogger.Error("unable get block from harmony blockchain client", zap.Error(err))
@@ -81,6 +121,11 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 
 		if currentBlock%1000 == 0 {
 			blockNumberLogger.Info("processed another 1000 blocks")
+		}
+
+		if runner.DryRun {
+			blockNumberLogger.Info("received block")
+			continue
 		}
 
 		if runner.DryRun {
@@ -97,5 +142,5 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 		}
 	}
 
-	return nil
+	runner.logger.Info("backfill block go routine finished")
 }

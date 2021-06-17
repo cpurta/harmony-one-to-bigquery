@@ -53,6 +53,13 @@ func BackfillCommand() *cli.Command {
 				Destination: &backfillRunner.TxnsTableID,
 				Value:       "transactions",
 			},
+			&cli.IntFlag{
+				Name:        "concurrency",
+				EnvVars:     []string{"CONCURRENCY"},
+				Usage:       "the number concurrent go routines pulling Harmony One blockchain data",
+				Destination: &backfillRunner.Concurrency,
+				Value:       1,
+			},
 		},
 		Action: backfillRunner.Run,
 	}
