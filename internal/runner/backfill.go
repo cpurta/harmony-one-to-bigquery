@@ -119,6 +119,10 @@ func (runner *BackfillRunner) backfillBlocks(ctx context.Context, counter *count
 			continue
 		}
 
+		if block == nil {
+			continue
+		}
+
 		if currentBlock%1000 == 0 {
 			blockNumberLogger.Info("processed another 1000 blocks")
 		}
