@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/cpurta/harmony-one-to-bigquery/internal/clients/bigquery"
@@ -108,13 +109,18 @@ func (runner *BackfillRunner) backfillBlocks(ctx context.Context, counter *count
 		counter.Count += 1
 		counter.Lock.Unlock()
 
-		if currentBlock == endBlock {
+		if currentBlock >= endBlock {
 			break
 		}
 
 		blockNumberLogger := runner.logger.With(zap.Int64("block_number", currentBlock))
 
 		if block, err = runner.harmonyClient.GetBlockByNumber(currentBlock); err != nil {
+			if strings.Contains(err.Error(), "-32000") {
+				blockNumberLogger.Info("recieve error stating we are greater than current block, bailing...")
+				break
+			}
+
 			blockNumberLogger.Error("unable get block from harmony blockchain client", zap.Error(err))
 			continue
 		}

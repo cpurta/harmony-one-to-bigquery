@@ -9,6 +9,7 @@ import (
 	"cloud.google.com/go/bigquery"
 	bq "github.com/cpurta/harmony-one-to-bigquery/internal/clients/bigquery"
 	"github.com/cpurta/harmony-one-to-bigquery/internal/model"
+	"github.com/cpurta/harmony-one-to-bigquery/internal/util"
 	"google.golang.org/api/iterator"
 )
 
@@ -77,8 +78,6 @@ func (client *bigQueryClient) GetMostRecentBlockNumber(ctx context.Context) (int
 			return latestBlockNumber, err
 		}
 
-		fmt.Println("Block number row recieved:", row)
-
 		if len(row) != 1 {
 			break
 		}
@@ -87,7 +86,7 @@ func (client *bigQueryClient) GetMostRecentBlockNumber(ctx context.Context) (int
 			break
 		}
 
-		if latestBlockNumber, err = hexToInt(row[0].(string)); err != nil {
+		if latestBlockNumber, err = util.HexToInt(row[0].(string)); err != nil {
 			return latestBlockNumber, err
 		}
 	}

@@ -2,6 +2,7 @@ package client
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -13,13 +14,20 @@ import (
 	"go.uber.org/zap"
 )
 
+type Error struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
 // latestHeaderResponse wraps a Header response object into the result object
 type latestHeaderResponse struct {
+	Error  *Error        `json:"error"`
 	Result *model.Header `json:"result"`
 }
 
 // blockNumberResponse wraps a Block response object into the result object
 type blockNumberResponse struct {
+	Error  *Error       `json:"error"`
 	Result *model.Block `json:"result"`
 }
 
@@ -75,6 +83,10 @@ func (client *harmonyOneClient) GetLatestHeader() (*model.Header, error) {
 		return nil, err
 	}
 
+	if headerResponse.Error != nil {
+		return headerResponse.Result, fmt.Errorf("received error in header response: [%d] %s", headerResponse.Error.Code, headerResponse.Error.Message)
+	}
+
 	return headerResponse.Result, nil
 }
 
@@ -117,6 +129,10 @@ func (client *harmonyOneClient) GetBlockByNumber(blockNumber int64) (*model.Bloc
 
 	if err = json.Unmarshal(responseBody, &blockNumberResponse); err != nil {
 		return nil, err
+	}
+
+	if blockNumberResponse.Error != nil {
+		return blockNumberResponse.Result, fmt.Errorf("received error in header response: [%d] %s", blockNumberResponse.Error.Code, blockNumberResponse.Error.Message)
 	}
 
 	return blockNumberResponse.Result, nil
