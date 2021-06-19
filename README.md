@@ -1,6 +1,6 @@
 # harmony-one-to-bigquery
 
-
+![go test](https://github.com/cpurta/harmony-one-to-bigquery/actions/workflows/go.yml/badge.svg)
 
 A golang application to import Harmony ONE blockchain data into GCP BigQuery. The
 overall objective of this program is to request the most recent block number submitted
