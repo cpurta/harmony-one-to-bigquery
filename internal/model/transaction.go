@@ -31,7 +31,6 @@ func (txn *Transaction) Save() (map[string]bigquery.Value, string, error) {
 		"from":             txn.From,
 		"gas":              txn.Gas,
 		"gasPrice":         txn.GasPrice,
-		"hash":             txn.Hash,
 		"input":            txn.Input,
 		"nonce":            txn.Nonce,
 		"r":                txn.R,
@@ -41,6 +40,7 @@ func (txn *Transaction) Save() (map[string]bigquery.Value, string, error) {
 		"to":               txn.To,
 		"toShardID":        txn.ToShardID,
 		"transactionIndex": txn.TransactionIndex,
+		"txnHash":          txn.Hash,
 		"v":                txn.V,
 		"value":            txn.Value,
 	}, bigquery.NoDedupeID, nil

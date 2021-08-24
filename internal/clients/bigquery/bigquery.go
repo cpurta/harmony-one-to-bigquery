@@ -11,7 +11,11 @@ import (
 
 type BigQueryClient interface {
 	GetMostRecentBlockNumber(ctx context.Context) (int64, error)
+	CreateBlocksTable(ctx context.Context) error
+	BlocksTableExists(ctx context.Context) bool
 	InsertBlock(block *model.Block, ctx context.Context) error
+	CreateTransactionsTable(ctx context.Context) error
+	TransactionsTableExists(ctx context.Context) bool
 	InsertTransactions(transactions []*model.Transaction, ctx context.Context) error
 	io.Closer
 }

@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"cloud.google.com/go/bigquery"
 	bq "github.com/cpurta/harmony-one-to-bigquery/internal/clients/bigquery"
 	"github.com/cpurta/harmony-one-to-bigquery/internal/model"
+	"github.com/cpurta/harmony-one-to-bigquery/internal/schema"
 	"github.com/cpurta/harmony-one-to-bigquery/internal/util"
 	"google.golang.org/api/iterator"
 )
@@ -94,6 +96,30 @@ func (client *bigQueryClient) GetMostRecentBlockNumber(ctx context.Context) (int
 	return latestBlockNumber, nil
 }
 
+func (client *bigQueryClient) CreateBlocksTable(ctx context.Context) error {
+	table := client.client.Dataset(client.datasetID).Table(client.blocksTableID)
+
+	metadata := &bigquery.TableMetadata{
+		Schema:         schema.BlocksTableSchema,
+		ExpirationTime: time.Now().AddDate(1, 0, 0),
+	}
+
+	return table.Create(ctx, metadata)
+}
+
+func (client *bigQueryClient) BlocksTableExists(ctx context.Context) bool {
+	var (
+		table = client.client.Dataset(client.datasetID).Table(client.blocksTableID)
+		err   error
+	)
+
+	if _, err = table.Metadata(ctx); err != nil {
+		return false
+	}
+
+	return true
+}
+
 func (client *bigQueryClient) InsertBlock(block *model.Block, ctx context.Context) error {
 	inserter := client.client.Dataset(client.datasetID).Table(client.blocksTableID).Inserter()
 
@@ -102,6 +128,30 @@ func (client *bigQueryClient) InsertBlock(block *model.Block, ctx context.Contex
 	}
 
 	return nil
+}
+
+func (client *bigQueryClient) CreateTransactionsTable(ctx context.Context) error {
+	table := client.client.Dataset(client.datasetID).Table(client.txnsTableID)
+
+	metadata := &bigquery.TableMetadata{
+		Schema:         schema.TransactionsTableSchema,
+		ExpirationTime: time.Now().AddDate(1, 0, 0),
+	}
+
+	return table.Create(ctx, metadata)
+}
+
+func (client *bigQueryClient) TransactionsTableExists(ctx context.Context) bool {
+	var (
+		table = client.client.Dataset(client.datasetID).Table(client.txnsTableID)
+		err   error
+	)
+
+	if _, err = table.Metadata(ctx); err != nil {
+		return false
+	}
+
+	return true
 }
 
 func (client *bigQueryClient) InsertTransactions(transactions []*model.Transaction, ctx context.Context) error {

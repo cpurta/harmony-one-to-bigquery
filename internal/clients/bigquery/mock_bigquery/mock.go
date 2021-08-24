@@ -35,6 +35,20 @@ func (m *MockBigQueryClient) EXPECT() *MockBigQueryClientMockRecorder {
 	return m.recorder
 }
 
+// BlocksTableExists mocks base method.
+func (m *MockBigQueryClient) BlocksTableExists(ctx context.Context) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlocksTableExists", ctx)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// BlocksTableExists indicates an expected call of BlocksTableExists.
+func (mr *MockBigQueryClientMockRecorder) BlocksTableExists(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlocksTableExists", reflect.TypeOf((*MockBigQueryClient)(nil).BlocksTableExists), ctx)
+}
+
 // Close mocks base method.
 func (m *MockBigQueryClient) Close() error {
 	m.ctrl.T.Helper()
@@ -47,6 +61,34 @@ func (m *MockBigQueryClient) Close() error {
 func (mr *MockBigQueryClientMockRecorder) Close() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockBigQueryClient)(nil).Close))
+}
+
+// CreateBlocksTable mocks base method.
+func (m *MockBigQueryClient) CreateBlocksTable(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateBlocksTable", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateBlocksTable indicates an expected call of CreateBlocksTable.
+func (mr *MockBigQueryClientMockRecorder) CreateBlocksTable(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateBlocksTable", reflect.TypeOf((*MockBigQueryClient)(nil).CreateBlocksTable), ctx)
+}
+
+// CreateTransactionsTable mocks base method.
+func (m *MockBigQueryClient) CreateTransactionsTable(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateTransactionsTable", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateTransactionsTable indicates an expected call of CreateTransactionsTable.
+func (mr *MockBigQueryClientMockRecorder) CreateTransactionsTable(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTransactionsTable", reflect.TypeOf((*MockBigQueryClient)(nil).CreateTransactionsTable), ctx)
 }
 
 // GetMostRecentBlockNumber mocks base method.
@@ -90,4 +132,18 @@ func (m *MockBigQueryClient) InsertTransactions(transactions []*model.Transactio
 func (mr *MockBigQueryClientMockRecorder) InsertTransactions(transactions, ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertTransactions", reflect.TypeOf((*MockBigQueryClient)(nil).InsertTransactions), transactions, ctx)
+}
+
+// TransactionsTableExists mocks base method.
+func (m *MockBigQueryClient) TransactionsTableExists(ctx context.Context) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TransactionsTableExists", ctx)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// TransactionsTableExists indicates an expected call of TransactionsTableExists.
+func (mr *MockBigQueryClientMockRecorder) TransactionsTableExists(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionsTableExists", reflect.TypeOf((*MockBigQueryClient)(nil).TransactionsTableExists), ctx)
 }
