@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -64,9 +65,31 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 		counter      = &counter{
 			Lock: &sync.Mutex{},
 		}
-		wg  = &sync.WaitGroup{}
-		err error
+		blocksTable = fmt.Sprintf("`%s.%s.%s`", runner.GoogleCloudProjectID, runner.DatasetID, runner.BlocksTableID)
+		txnsTable   = fmt.Sprintf("`%s.%s.%s`", runner.GoogleCloudProjectID, runner.DatasetID, runner.TxnsTableID)
+		wg          = &sync.WaitGroup{}
+		err         error
 	)
+
+	runner.logger.Debug("checking if blocks table exists")
+	if blocksExist := runner.bigQueryClient.BlocksTableExists(ctx); !blocksExist {
+		runner.logger.Info(fmt.Sprintf("%s does not exist, attempting to create", blocksTable))
+
+		if err = runner.bigQueryClient.CreateBlocksTable(ctx); err != nil {
+			runner.logger.Error(fmt.Sprintf("unable to create %s table", blocksTable), zap.Error(err))
+			return err
+		}
+	}
+
+	runner.logger.Debug("checking if transactions table exists")
+	if blocksExist := runner.bigQueryClient.BlocksTableExists(ctx); !blocksExist {
+		runner.logger.Info(fmt.Sprintf("%s does not exist, attempting to create", txnsTable))
+
+		if err = runner.bigQueryClient.CreateTransactionsTable(ctx); err != nil {
+			runner.logger.Error(fmt.Sprintf("unable to create %s table", txnsTable), zap.Error(err))
+			return err
+		}
+	}
 
 	if header, err = runner.harmonyClient.GetLatestHeader(); err != nil {
 		runner.logger.Error("unable to get the most recent block header from the harmony blockchain client", zap.Error(err))
@@ -131,11 +154,6 @@ func (runner *BackfillRunner) backfillBlocks(ctx context.Context, counter *count
 
 		if currentBlock%1000 == 0 {
 			blockNumberLogger.Info("processed another 1000 blocks")
-		}
-
-		if runner.DryRun {
-			blockNumberLogger.Info("received block")
-			continue
 		}
 
 		if runner.DryRun {
