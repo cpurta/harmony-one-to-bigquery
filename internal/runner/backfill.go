@@ -71,6 +71,16 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 		err         error
 	)
 
+	runner.logger.Debug("checking if dataset exists")
+	if datasetExists := runner.bigQueryClient.ProjectDatasetExists(ctx); !datasetExists {
+		runner.logger.Info(fmt.Sprintf("dataset_id \"%s\" does not exists in project_id \"%s\", attempting to create", runner.DatasetID, runner.GoogleCloudProjectID))
+
+		if err = runner.bigQueryClient.CreateProjectDataset(ctx); err != nil {
+			runner.logger.Error(fmt.Sprintf("unable to create dataset_id \"%s\" in project_id \"%s\"", runner.DatasetID, runner.GoogleCloudProjectID), zap.Error(err))
+			return err
+		}
+	}
+
 	runner.logger.Debug("checking if blocks table exists")
 	if blocksExist := runner.bigQueryClient.BlocksTableExists(ctx); !blocksExist {
 		runner.logger.Info(fmt.Sprintf("%s does not exist, attempting to create", blocksTable))

@@ -77,6 +77,20 @@ func (mr *MockBigQueryClientMockRecorder) CreateBlocksTable(ctx interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateBlocksTable", reflect.TypeOf((*MockBigQueryClient)(nil).CreateBlocksTable), ctx)
 }
 
+// CreateProjectDataset mocks base method.
+func (m *MockBigQueryClient) CreateProjectDataset(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateProjectDataset", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateProjectDataset indicates an expected call of CreateProjectDataset.
+func (mr *MockBigQueryClientMockRecorder) CreateProjectDataset(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateProjectDataset", reflect.TypeOf((*MockBigQueryClient)(nil).CreateProjectDataset), ctx)
+}
+
 // CreateTransactionsTable mocks base method.
 func (m *MockBigQueryClient) CreateTransactionsTable(ctx context.Context) error {
 	m.ctrl.T.Helper()
@@ -132,6 +146,20 @@ func (m *MockBigQueryClient) InsertTransactions(transactions []*model.Transactio
 func (mr *MockBigQueryClientMockRecorder) InsertTransactions(transactions, ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertTransactions", reflect.TypeOf((*MockBigQueryClient)(nil).InsertTransactions), transactions, ctx)
+}
+
+// ProjectDatasetExists mocks base method.
+func (m *MockBigQueryClient) ProjectDatasetExists(ctx context.Context) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProjectDatasetExists", ctx)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// ProjectDatasetExists indicates an expected call of ProjectDatasetExists.
+func (mr *MockBigQueryClientMockRecorder) ProjectDatasetExists(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProjectDatasetExists", reflect.TypeOf((*MockBigQueryClient)(nil).ProjectDatasetExists), ctx)
 }
 
 // TransactionsTableExists mocks base method.

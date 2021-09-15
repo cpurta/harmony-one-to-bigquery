@@ -96,6 +96,22 @@ func (client *bigQueryClient) GetMostRecentBlockNumber(ctx context.Context) (int
 	return latestBlockNumber, nil
 }
 
+func (client *bigQueryClient) ProjectDatasetExists(ctx context.Context) bool {
+	dataset := client.client.Dataset(client.datasetID)
+
+	if _, err := dataset.Metadata(ctx); err != nil {
+		return false
+	}
+
+	return true
+}
+
+func (client *bigQueryClient) CreateProjectDataset(ctx context.Context) error {
+	dataset := client.client.Dataset(client.datasetID)
+
+	return dataset.Create(ctx, nil)
+}
+
 func (client *bigQueryClient) CreateBlocksTable(ctx context.Context) error {
 	table := client.client.Dataset(client.datasetID).Table(client.blocksTableID)
 
