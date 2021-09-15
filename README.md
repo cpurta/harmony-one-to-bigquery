@@ -3,7 +3,7 @@
 ![go test](https://github.com/cpurta/harmony-one-to-bigquery/actions/workflows/go.yml/badge.svg)
 
 A golang application to import Harmony ONE blockchain data into GCP (Google Cloud Platform)
-BigQuery. The overall objective of this program is to request the most recent block 
+BigQuery. The overall objective of this program is to request the most recent block
 number submitted to the Harmony One blockchain. Then retrieve the most recent blockchain
 data inserted into GCP BigQuery. Then begin backfilling the blockchain data into BigQuery
 by making RPC requests for each block missing from BigQuery.
@@ -84,11 +84,10 @@ Export an environment variable called `PROJECT_ID` with the `project-id` value p
 $ export PROJECT_ID=your-project-id
 ```
 
-Next lets build the docker image from the docker folder in the project
+Next lets build the docker image from the project root
 
 ```
-$ cd ./docker
-$ docker build -t gcr.io/${PROJECT_ID}/hmy-bq-import:v1 .
+$ docker build -f ./docker/Dockerfile -t gcr.io/${PROJECT_ID}/hmy-bq-import:v1 .
 ```
 
 Verify that the image was built:
