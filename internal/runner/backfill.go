@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cpurta/harmony-one-to-bigquery/internal/clients/bigquery"
 	bq "github.com/cpurta/harmony-one-to-bigquery/internal/clients/bigquery/client"
@@ -81,6 +82,18 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 		}
 	}
 
+	runner.logger.Debug("checking if transactions table exists")
+	if txnsExists := runner.bigQueryClient.BlocksTableExists(ctx); !txnsExists {
+		runner.logger.Info(fmt.Sprintf("%s does not exist, attempting to create", txnsTable))
+
+		if err = runner.bigQueryClient.CreateTransactionsTable(ctx); err != nil {
+			runner.logger.Error(fmt.Sprintf("unable to create %s table", txnsTable), zap.Error(err))
+			return err
+		}
+
+		time.Sleep(time.Second * 1)
+	}
+
 	runner.logger.Debug("checking if blocks table exists")
 	if blocksExist := runner.bigQueryClient.BlocksTableExists(ctx); !blocksExist {
 		runner.logger.Info(fmt.Sprintf("%s does not exist, attempting to create", blocksTable))
@@ -89,16 +102,8 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 			runner.logger.Error(fmt.Sprintf("unable to create %s table", blocksTable), zap.Error(err))
 			return err
 		}
-	}
 
-	runner.logger.Debug("checking if transactions table exists")
-	if blocksExist := runner.bigQueryClient.BlocksTableExists(ctx); !blocksExist {
-		runner.logger.Info(fmt.Sprintf("%s does not exist, attempting to create", txnsTable))
-
-		if err = runner.bigQueryClient.CreateTransactionsTable(ctx); err != nil {
-			runner.logger.Error(fmt.Sprintf("unable to create %s table", txnsTable), zap.Error(err))
-			return err
-		}
+		time.Sleep(time.Second * 1)
 	}
 
 	if header, err = runner.harmonyClient.GetLatestHeader(); err != nil {
@@ -162,7 +167,7 @@ func (runner *BackfillRunner) backfillBlocks(ctx context.Context, counter *count
 			continue
 		}
 
-		if currentBlock%1000 == 0 {
+		if currentBlock%1000 == 0 && currentBlock != 0 {
 			blockNumberLogger.Info("processed another 1000 blocks")
 		}
 
