@@ -91,7 +91,8 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 			return err
 		}
 
-		time.Sleep(time.Second * 1)
+		runner.logger.Debug("cold start: waiting until transactions tables are recognized")
+		time.Sleep(time.Second * 2)
 	}
 
 	runner.logger.Debug("checking if blocks table exists")
@@ -103,7 +104,8 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 			return err
 		}
 
-		time.Sleep(time.Second * 1)
+		runner.logger.Debug("cold start: waiting until blocks tables are recognized")
+		time.Sleep(time.Second * 2)
 	}
 
 	if header, err = runner.harmonyClient.GetLatestHeader(); err != nil {
