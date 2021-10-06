@@ -2,6 +2,20 @@ package model
 
 import "cloud.google.com/go/bigquery"
 
+func NewRetryBlock(block *Block, err error) *RetryBlock {
+	return &RetryBlock{
+		Block:      block,
+		RetryCount: 0,
+		Error:      err,
+	}
+}
+
+type RetryBlock struct {
+	Block      *Block
+	RetryCount int
+	Error      error
+}
+
 type Block struct {
 	Difficulty       int64
 	Epoch            string

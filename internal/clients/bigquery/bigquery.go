@@ -19,5 +19,7 @@ type BigQueryClient interface {
 	CreateTransactionsTable(ctx context.Context) error
 	TransactionsTableExists(ctx context.Context) bool
 	InsertTransactions(transactions []*model.Transaction, ctx context.Context) error
+	UpdateBlocksSchema(ctx context.Context) error
+	UpdateTransactionsSchema(ctx context.Context) error
 	io.Closer
 }

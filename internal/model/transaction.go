@@ -2,6 +2,20 @@ package model
 
 import "cloud.google.com/go/bigquery"
 
+func NewRetryTransaction(txn *Transaction, err error) *RetryTransaction {
+	return &RetryTransaction{
+		Transaction: txn,
+		RetryCount:  0,
+		Error:       err,
+	}
+}
+
+type RetryTransaction struct {
+	Transaction *Transaction
+	RetryCount  int
+	Error       error
+}
+
 type Transaction struct {
 	BlockHash        string
 	BlockNumber      string

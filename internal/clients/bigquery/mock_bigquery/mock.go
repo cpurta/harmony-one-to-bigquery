@@ -175,3 +175,31 @@ func (mr *MockBigQueryClientMockRecorder) TransactionsTableExists(ctx interface{
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionsTableExists", reflect.TypeOf((*MockBigQueryClient)(nil).TransactionsTableExists), ctx)
 }
+
+// UpdateBlocksSchema mocks base method.
+func (m *MockBigQueryClient) UpdateBlocksSchema(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateBlocksSchema", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateBlocksSchema indicates an expected call of UpdateBlocksSchema.
+func (mr *MockBigQueryClientMockRecorder) UpdateBlocksSchema(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateBlocksSchema", reflect.TypeOf((*MockBigQueryClient)(nil).UpdateBlocksSchema), ctx)
+}
+
+// UpdateTransactionsSchema mocks base method.
+func (m *MockBigQueryClient) UpdateTransactionsSchema(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateTransactionsSchema", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateTransactionsSchema indicates an expected call of UpdateTransactionsSchema.
+func (mr *MockBigQueryClientMockRecorder) UpdateTransactionsSchema(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateTransactionsSchema", reflect.TypeOf((*MockBigQueryClient)(nil).UpdateTransactionsSchema), ctx)
+}

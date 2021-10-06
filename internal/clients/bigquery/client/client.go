@@ -180,6 +180,44 @@ func (client *bigQueryClient) InsertTransactions(transactions []*model.Transacti
 	return nil
 }
 
+func (client *bigQueryClient) UpdateBlocksSchema(ctx context.Context) error {
+	table := client.client.Dataset(client.datasetID).Table(client.blocksTableID)
+
+	metadata, err := table.Metadata(ctx)
+	if err != nil {
+		return err
+	}
+
+	update := bigquery.TableMetadataToUpdate{
+		Schema: schema.BlocksTableSchema,
+	}
+
+	if _, err = table.Update(ctx, update, metadata.ETag); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (client *bigQueryClient) UpdateTransactionsSchema(ctx context.Context) error {
+	table := client.client.Dataset(client.datasetID).Table(client.txnsTableID)
+
+	metadata, err := table.Metadata(ctx)
+	if err != nil {
+		return err
+	}
+
+	update := bigquery.TableMetadataToUpdate{
+		Schema: schema.BlocksTableSchema,
+	}
+
+	if _, err = table.Update(ctx, update, metadata.ETag); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (client *bigQueryClient) Close() error {
 	return client.client.Close()
 }

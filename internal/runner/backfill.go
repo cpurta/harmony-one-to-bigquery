@@ -25,9 +25,14 @@ type BackfillRunner struct {
 	DatasetID            string
 	BlocksTableID        string
 	TxnsTableID          string
+	LoggingProduction    bool
+	LogLevel             string
 	Concurrency          int
+	MaxRetries           int
 	harmonyClient        harmony.HarmonyClient
 	bigQueryClient       bigquery.BigQueryClient
+	retryBlockChan       chan *model.RetryBlock
+	retryTxnChan         chan *model.RetryTransaction
 	logger               *zap.Logger
 }
 
@@ -42,9 +47,18 @@ func (runner *BackfillRunner) Run(cli *cli.Context) error {
 		err error
 	)
 
-	if runner.logger, err = zap.NewProduction(); err != nil {
-		return err
+	if runner.LoggingProduction {
+		if runner.logger, err = zap.NewProduction(); err != nil {
+			return err
+		}
+	} else {
+		if runner.logger, err = zap.NewDevelopment(); err != nil {
+			return err
+		}
 	}
+
+	runner.retryBlockChan = make(chan *model.RetryBlock)
+	runner.retryTxnChan = make(chan *model.RetryTransaction)
 
 	if runner.Concurrency <= 0 {
 		return errors.New("must specify concurrency > 0")
@@ -91,8 +105,7 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 			return err
 		}
 
-		runner.logger.Debug("cold start: waiting until transactions tables are recognized")
-		time.Sleep(time.Second * 2)
+		runner.ensureTxnsTableExists(ctx)
 	}
 
 	runner.logger.Debug("checking if blocks table exists")
@@ -104,8 +117,7 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 			return err
 		}
 
-		runner.logger.Debug("cold start: waiting until blocks tables are recognized")
-		time.Sleep(time.Second * 2)
+		runner.ensureBlocksTableExists(ctx)
 	}
 
 	if header, err = runner.harmonyClient.GetLatestHeader(); err != nil {
@@ -130,9 +142,35 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 		go runner.backfillBlocks(ctx, counter, wg, backfillUpTo)
 	}
 
+	go runner.retryFailedBlocksAndTxns()
+
 	wg.Wait()
 
 	return nil
+}
+
+func (runner *BackfillRunner) ensureBlocksTableExists(ctx context.Context) {
+	for {
+		if blocksExists := runner.bigQueryClient.BlocksTableExists(ctx); !blocksExists {
+			runner.logger.Info("waiting until blocks table exists")
+			time.Sleep(time.Second * 5)
+			continue
+		}
+
+		break
+	}
+}
+
+func (runner *BackfillRunner) ensureTxnsTableExists(ctx context.Context) {
+	for {
+		if txnExists := runner.bigQueryClient.TransactionsTableExists(ctx); !txnExists {
+			runner.logger.Info("waiting until transactions table exists")
+			time.Sleep(time.Second * 5)
+			continue
+		}
+
+		break
+	}
 }
 
 func (runner *BackfillRunner) backfillBlocks(ctx context.Context, counter *counter, wg *sync.WaitGroup, endBlock int64) {
@@ -180,12 +218,71 @@ func (runner *BackfillRunner) backfillBlocks(ctx context.Context, counter *count
 
 		if err = runner.bigQueryClient.InsertBlock(block, ctx); err != nil {
 			blockNumberLogger.Error("unable to insert block into BigQuery", zap.Error(err))
+			runner.retryBlockChan <- model.NewRetryBlock(block, err)
 		}
 
 		if err = runner.bigQueryClient.InsertTransactions(block.Transactions, ctx); err != nil {
 			blockNumberLogger.Error("unable to insert block transactions into BigQuery", zap.Error(err))
+			for _, txn := range block.Transactions {
+				runner.retryTxnChan <- model.NewRetryTransaction(txn, err)
+			}
 		}
 	}
 
 	runner.logger.Info("backfill block go routine finished")
+}
+
+func (runner *BackfillRunner) retryFailedBlocksAndTxns() {
+	var (
+		blocksSchemaUpdated bool
+		txnsSchemaUpdated   bool
+	)
+	for {
+		ctx := context.Background()
+
+		select {
+		// attempt to re-insert failed blocks
+		case retryBlock := <-runner.retryBlockChan:
+
+			if retryBlock.RetryCount >= runner.MaxRetries {
+				runner.logger.Error("block was unable to be inserted after max attempts", zap.Error(retryBlock.Error))
+				continue
+			}
+
+			// pro-actively update the blocks table schema if it is missing
+			if strings.Contains(retryBlock.Error.Error(), "table has no schema") && !blocksSchemaUpdated {
+				if err := runner.bigQueryClient.UpdateBlocksSchema(ctx); err != nil {
+					runner.logger.Error("unable to update blocks table schema", zap.Error(err))
+				}
+			}
+
+			runner.logger.Debug("attempting to re-insert a failed block")
+			if err := runner.bigQueryClient.InsertBlock(retryBlock.Block, ctx); err != nil {
+				retryBlock.RetryCount++
+				retryBlock.Error = err
+				runner.retryBlockChan <- retryBlock
+			}
+		// attempt to re-insert failed transactions
+		case retryTxn := <-runner.retryTxnChan:
+			if retryTxn.RetryCount >= runner.MaxRetries {
+				runner.logger.Error("transaction was unable to be inserted after max attempts", zap.Error(retryTxn.Error))
+				continue
+			}
+
+			// pro-actively update the transactions table schema if it is missing
+			if strings.Contains(retryTxn.Error.Error(), "table has no schema") && !txnsSchemaUpdated {
+				if err := runner.bigQueryClient.UpdateTransactionsSchema(ctx); err != nil {
+					runner.logger.Error("unable to update transactions table schema", zap.Error(err))
+				}
+			}
+
+			runner.logger.Debug("attempting to re-insert a failed transaction")
+			txns := []*model.Transaction{retryTxn.Transaction}
+			if err := runner.bigQueryClient.InsertTransactions(txns, ctx); err != nil {
+				retryTxn.RetryCount++
+				retryTxn.Error = err
+				runner.retryTxnChan <- retryTxn
+			}
+		}
+	}
 }
