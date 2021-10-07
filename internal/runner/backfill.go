@@ -116,7 +116,8 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 		return err
 	}
 
-	if !util.SchemasEqual(schema.BlocksTableSchema, *txnsSchema) {
+	if !util.SchemasEqual(schema.TransactionsTableSchema, *txnsSchema) {
+		runner.logger.Debug("attempting to update transactions table schema")
 		if err := runner.bigQueryClient.UpdateTransactionsSchema(ctx); err != nil {
 			runner.logger.Error(fmt.Sprintf("unable to update %s schema", txnsTable), zap.Error(err))
 			return err
@@ -141,6 +142,7 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 	}
 
 	if !util.SchemasEqual(schema.BlocksTableSchema, *blocksSchema) {
+		runner.logger.Debug("attempting to update blocks table schema")
 		if err := runner.bigQueryClient.UpdateBlocksSchema(ctx); err != nil {
 			runner.logger.Error(fmt.Sprintf("unable to update %s schema", blocksTable), zap.Error(err))
 			return err
