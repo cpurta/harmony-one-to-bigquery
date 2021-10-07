@@ -7,16 +7,19 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/cpurta/harmony-one-to-bigquery/internal/clients/bigquery"
 	bq "github.com/cpurta/harmony-one-to-bigquery/internal/clients/bigquery/client"
 	"github.com/cpurta/harmony-one-to-bigquery/internal/clients/harmony"
 	"github.com/cpurta/harmony-one-to-bigquery/internal/clients/harmony/client"
 	"github.com/cpurta/harmony-one-to-bigquery/internal/model"
+	"github.com/cpurta/harmony-one-to-bigquery/internal/schema"
+	"github.com/cpurta/harmony-one-to-bigquery/internal/util"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
 )
+
+const MAX_CHAN_LENGTH = 1000
 
 type BackfillRunner struct {
 	NodeURL              string
@@ -25,9 +28,14 @@ type BackfillRunner struct {
 	DatasetID            string
 	BlocksTableID        string
 	TxnsTableID          string
+	LoggingProduction    bool
+	LogLevel             string
 	Concurrency          int
+	MaxRetries           int
 	harmonyClient        harmony.HarmonyClient
 	bigQueryClient       bigquery.BigQueryClient
+	retryBlockChan       chan *model.RetryBlock
+	retryTxnChan         chan *model.RetryTransaction
 	logger               *zap.Logger
 }
 
@@ -42,9 +50,18 @@ func (runner *BackfillRunner) Run(cli *cli.Context) error {
 		err error
 	)
 
-	if runner.logger, err = zap.NewProduction(); err != nil {
-		return err
+	if runner.LoggingProduction {
+		if runner.logger, err = zap.NewProduction(); err != nil {
+			return err
+		}
+	} else {
+		if runner.logger, err = zap.NewDevelopment(); err != nil {
+			return err
+		}
 	}
+
+	runner.retryBlockChan = make(chan *model.RetryBlock, MAX_CHAN_LENGTH)
+	runner.retryTxnChan = make(chan *model.RetryTransaction, MAX_CHAN_LENGTH)
 
 	if runner.Concurrency <= 0 {
 		return errors.New("must specify concurrency > 0")
@@ -72,6 +89,8 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 		err         error
 	)
 
+	// dataset check
+
 	runner.logger.Debug("checking if dataset exists")
 	if datasetExists := runner.bigQueryClient.ProjectDatasetExists(ctx); !datasetExists {
 		runner.logger.Info(fmt.Sprintf("dataset_id \"%s\" does not exists in project_id \"%s\", attempting to create", runner.DatasetID, runner.GoogleCloudProjectID))
@@ -82,6 +101,8 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 		}
 	}
 
+	// transactions table check
+
 	runner.logger.Debug("checking if transactions table exists")
 	if txnsExists := runner.bigQueryClient.BlocksTableExists(ctx); !txnsExists {
 		runner.logger.Info(fmt.Sprintf("%s does not exist, attempting to create", txnsTable))
@@ -90,10 +111,18 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 			runner.logger.Error(fmt.Sprintf("unable to create %s table", txnsTable), zap.Error(err))
 			return err
 		}
-
-		runner.logger.Debug("cold start: waiting until transactions tables are recognized")
-		time.Sleep(time.Second * 2)
 	}
+
+	txnsSchema, err := runner.bigQueryClient.GetTransactionSchema(ctx)
+	if err != nil {
+		return err
+	}
+
+	if !util.SchemasEqual(schema.TransactionsTableSchema, txnsSchema) {
+		return fmt.Errorf("%s table schema does not match schema.TransactionsTableSchema, please fix schema in GCP console and re-run", txnsTable)
+	}
+
+	// blocks table check
 
 	runner.logger.Debug("checking if blocks table exists")
 	if blocksExist := runner.bigQueryClient.BlocksTableExists(ctx); !blocksExist {
@@ -103,10 +132,18 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 			runner.logger.Error(fmt.Sprintf("unable to create %s table", blocksTable), zap.Error(err))
 			return err
 		}
-
-		runner.logger.Debug("cold start: waiting until blocks tables are recognized")
-		time.Sleep(time.Second * 2)
 	}
+
+	blocksSchema, err := runner.bigQueryClient.GetBlocksSchema(ctx)
+	if err != nil {
+		return err
+	}
+
+	if !util.SchemasEqual(schema.BlocksTableSchema, blocksSchema) {
+		return fmt.Errorf("%s table schema does not match schema.TransactionsTableSchema, please fix schema in GCP console and re-run", blocksTable)
+	}
+
+	// blocks and transaction processing
 
 	if header, err = runner.harmonyClient.GetLatestHeader(); err != nil {
 		runner.logger.Error("unable to get the most recent block header from the harmony blockchain client", zap.Error(err))
@@ -129,6 +166,9 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 		runner.logger.Info("spawning backfillBlocks go routine", zap.Int("routine_number", i))
 		go runner.backfillBlocks(ctx, counter, wg, backfillUpTo)
 	}
+
+	go runner.retryFailedBlocks()
+	go runner.retryFailedTxns()
 
 	wg.Wait()
 
@@ -180,12 +220,65 @@ func (runner *BackfillRunner) backfillBlocks(ctx context.Context, counter *count
 
 		if err = runner.bigQueryClient.InsertBlock(block, ctx); err != nil {
 			blockNumberLogger.Error("unable to insert block into BigQuery", zap.Error(err))
+			runner.retryBlockChan <- model.NewRetryBlock(block, err)
 		}
 
 		if err = runner.bigQueryClient.InsertTransactions(block.Transactions, ctx); err != nil {
 			blockNumberLogger.Error("unable to insert block transactions into BigQuery", zap.Error(err))
+			for _, txn := range block.Transactions {
+				runner.retryTxnChan <- model.NewRetryTransaction(txn, err)
+			}
 		}
 	}
 
 	runner.logger.Info("backfill block go routine finished")
+}
+
+func (runner *BackfillRunner) retryFailedBlocks() {
+	runner.logger.Debug("starting routine to retry failed blocks")
+
+	for {
+		ctx := context.Background()
+
+		select {
+		// attempt to re-insert failed blocks
+		case retryBlock := <-runner.retryBlockChan:
+			if retryBlock.RetryCount >= runner.MaxRetries {
+				runner.logger.Error("block was unable to be inserted after max attempts", zap.Error(retryBlock.Error))
+				continue
+			}
+
+			runner.logger.Debug("attempting to re-insert a failed block")
+			if err := runner.bigQueryClient.InsertBlock(retryBlock.Block, ctx); err != nil {
+				retryBlock.RetryCount++
+				retryBlock.Error = err
+				runner.retryBlockChan <- retryBlock
+			}
+		}
+	}
+}
+
+func (runner *BackfillRunner) retryFailedTxns() {
+	runner.logger.Debug("starting routine to retry failed transactions")
+
+	for {
+		ctx := context.Background()
+
+		select {
+		// attempt to re-insert failed transactions
+		case retryTxn := <-runner.retryTxnChan:
+			if retryTxn.RetryCount >= runner.MaxRetries {
+				runner.logger.Error("transaction was unable to be inserted after max attempts", zap.Error(retryTxn.Error))
+				continue
+			}
+
+			runner.logger.Debug("attempting to re-insert a failed transaction")
+			txns := []*model.Transaction{retryTxn.Transaction}
+			if err := runner.bigQueryClient.InsertTransactions(txns, ctx); err != nil {
+				retryTxn.RetryCount++
+				retryTxn.Error = err
+				runner.retryTxnChan <- retryTxn
+			}
+		}
+	}
 }
