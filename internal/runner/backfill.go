@@ -7,13 +7,14 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/cpurta/harmony-one-to-bigquery/internal/clients/bigquery"
 	bq "github.com/cpurta/harmony-one-to-bigquery/internal/clients/bigquery/client"
 	"github.com/cpurta/harmony-one-to-bigquery/internal/clients/harmony"
 	"github.com/cpurta/harmony-one-to-bigquery/internal/clients/harmony/client"
 	"github.com/cpurta/harmony-one-to-bigquery/internal/model"
+	"github.com/cpurta/harmony-one-to-bigquery/internal/schema"
+	"github.com/cpurta/harmony-one-to-bigquery/internal/util"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
 )
@@ -86,6 +87,8 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 		err         error
 	)
 
+	// dataset check
+
 	runner.logger.Debug("checking if dataset exists")
 	if datasetExists := runner.bigQueryClient.ProjectDatasetExists(ctx); !datasetExists {
 		runner.logger.Info(fmt.Sprintf("dataset_id \"%s\" does not exists in project_id \"%s\", attempting to create", runner.DatasetID, runner.GoogleCloudProjectID))
@@ -96,6 +99,8 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 		}
 	}
 
+	// transactions table check
+
 	runner.logger.Debug("checking if transactions table exists")
 	if txnsExists := runner.bigQueryClient.BlocksTableExists(ctx); !txnsExists {
 		runner.logger.Info(fmt.Sprintf("%s does not exist, attempting to create", txnsTable))
@@ -104,9 +109,21 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 			runner.logger.Error(fmt.Sprintf("unable to create %s table", txnsTable), zap.Error(err))
 			return err
 		}
-
-		runner.ensureTxnsTableExists(ctx)
 	}
+
+	txnsSchema, err := runner.bigQueryClient.GetTransactionSchema(ctx)
+	if err != nil {
+		return err
+	}
+
+	if !util.SchemasEqual(schema.BlocksTableSchema, *txnsSchema) {
+		if err := runner.bigQueryClient.UpdateTransactionsSchema(ctx); err != nil {
+			runner.logger.Error(fmt.Sprintf("unable to update %s schema", txnsTable), zap.Error(err))
+			return err
+		}
+	}
+
+	// blocks table check
 
 	runner.logger.Debug("checking if blocks table exists")
 	if blocksExist := runner.bigQueryClient.BlocksTableExists(ctx); !blocksExist {
@@ -116,9 +133,21 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 			runner.logger.Error(fmt.Sprintf("unable to create %s table", blocksTable), zap.Error(err))
 			return err
 		}
-
-		runner.ensureBlocksTableExists(ctx)
 	}
+
+	blocksSchema, err := runner.bigQueryClient.GetBlocksSchema(ctx)
+	if err != nil {
+		return err
+	}
+
+	if !util.SchemasEqual(schema.BlocksTableSchema, *blocksSchema) {
+		if err := runner.bigQueryClient.UpdateBlocksSchema(ctx); err != nil {
+			runner.logger.Error(fmt.Sprintf("unable to update %s schema", blocksTable), zap.Error(err))
+			return err
+		}
+	}
+
+	// blocks and transaction processing
 
 	if header, err = runner.harmonyClient.GetLatestHeader(); err != nil {
 		runner.logger.Error("unable to get the most recent block header from the harmony blockchain client", zap.Error(err))
@@ -147,30 +176,6 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 	wg.Wait()
 
 	return nil
-}
-
-func (runner *BackfillRunner) ensureBlocksTableExists(ctx context.Context) {
-	for {
-		if blocksExists := runner.bigQueryClient.BlocksTableExists(ctx); !blocksExists {
-			runner.logger.Info("waiting until blocks table exists")
-			time.Sleep(time.Second * 5)
-			continue
-		}
-
-		break
-	}
-}
-
-func (runner *BackfillRunner) ensureTxnsTableExists(ctx context.Context) {
-	for {
-		if txnExists := runner.bigQueryClient.TransactionsTableExists(ctx); !txnExists {
-			runner.logger.Info("waiting until transactions table exists")
-			time.Sleep(time.Second * 5)
-			continue
-		}
-
-		break
-	}
 }
 
 func (runner *BackfillRunner) backfillBlocks(ctx context.Context, counter *counter, wg *sync.WaitGroup, endBlock int64) {
@@ -233,10 +238,6 @@ func (runner *BackfillRunner) backfillBlocks(ctx context.Context, counter *count
 }
 
 func (runner *BackfillRunner) retryFailedBlocksAndTxns() {
-	var (
-		blocksSchemaUpdated bool
-		txnsSchemaUpdated   bool
-	)
 	for {
 		ctx := context.Background()
 
@@ -247,13 +248,6 @@ func (runner *BackfillRunner) retryFailedBlocksAndTxns() {
 			if retryBlock.RetryCount >= runner.MaxRetries {
 				runner.logger.Error("block was unable to be inserted after max attempts", zap.Error(retryBlock.Error))
 				continue
-			}
-
-			// pro-actively update the blocks table schema if it is missing
-			if strings.Contains(retryBlock.Error.Error(), "table has no schema") && !blocksSchemaUpdated {
-				if err := runner.bigQueryClient.UpdateBlocksSchema(ctx); err != nil {
-					runner.logger.Error("unable to update blocks table schema", zap.Error(err))
-				}
 			}
 
 			runner.logger.Debug("attempting to re-insert a failed block")
@@ -267,13 +261,6 @@ func (runner *BackfillRunner) retryFailedBlocksAndTxns() {
 			if retryTxn.RetryCount >= runner.MaxRetries {
 				runner.logger.Error("transaction was unable to be inserted after max attempts", zap.Error(retryTxn.Error))
 				continue
-			}
-
-			// pro-actively update the transactions table schema if it is missing
-			if strings.Contains(retryTxn.Error.Error(), "table has no schema") && !txnsSchemaUpdated {
-				if err := runner.bigQueryClient.UpdateTransactionsSchema(ctx); err != nil {
-					runner.logger.Error("unable to update transactions table schema", zap.Error(err))
-				}
 			}
 
 			runner.logger.Debug("attempting to re-insert a failed transaction")

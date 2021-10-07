@@ -8,6 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	bigquery "cloud.google.com/go/bigquery"
 	model "github.com/cpurta/harmony-one-to-bigquery/internal/model"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -105,6 +106,21 @@ func (mr *MockBigQueryClientMockRecorder) CreateTransactionsTable(ctx interface{
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTransactionsTable", reflect.TypeOf((*MockBigQueryClient)(nil).CreateTransactionsTable), ctx)
 }
 
+// GetBlocksSchema mocks base method.
+func (m *MockBigQueryClient) GetBlocksSchema(ctx context.Context) (bigquery.Schema, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBlocksSchema", ctx)
+	ret0, _ := ret[0].(bigquery.Schema)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBlocksSchema indicates an expected call of GetBlocksSchema.
+func (mr *MockBigQueryClientMockRecorder) GetBlocksSchema(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlocksSchema", reflect.TypeOf((*MockBigQueryClient)(nil).GetBlocksSchema), ctx)
+}
+
 // GetMostRecentBlockNumber mocks base method.
 func (m *MockBigQueryClient) GetMostRecentBlockNumber(ctx context.Context) (int64, error) {
 	m.ctrl.T.Helper()
@@ -118,6 +134,21 @@ func (m *MockBigQueryClient) GetMostRecentBlockNumber(ctx context.Context) (int6
 func (mr *MockBigQueryClientMockRecorder) GetMostRecentBlockNumber(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMostRecentBlockNumber", reflect.TypeOf((*MockBigQueryClient)(nil).GetMostRecentBlockNumber), ctx)
+}
+
+// GetTransactionSchema mocks base method.
+func (m *MockBigQueryClient) GetTransactionSchema(ctx context.Context) (bigquery.Schema, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTransactionSchema", ctx)
+	ret0, _ := ret[0].(bigquery.Schema)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTransactionSchema indicates an expected call of GetTransactionSchema.
+func (mr *MockBigQueryClientMockRecorder) GetTransactionSchema(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransactionSchema", reflect.TypeOf((*MockBigQueryClient)(nil).GetTransactionSchema), ctx)
 }
 
 // InsertBlock mocks base method.

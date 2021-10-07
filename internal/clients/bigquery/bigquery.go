@@ -6,6 +6,7 @@ import (
 	"context"
 	"io"
 
+	"cloud.google.com/go/bigquery"
 	"github.com/cpurta/harmony-one-to-bigquery/internal/model"
 )
 
@@ -19,6 +20,8 @@ type BigQueryClient interface {
 	CreateTransactionsTable(ctx context.Context) error
 	TransactionsTableExists(ctx context.Context) bool
 	InsertTransactions(transactions []*model.Transaction, ctx context.Context) error
+	GetBlocksSchema(ctx context.Context) (*bigquery.Schema, error)
+	GetTransactionSchema(ctx context.Context) (*bigquery.Schema, error)
 	UpdateBlocksSchema(ctx context.Context) error
 	UpdateTransactionsSchema(ctx context.Context) error
 	io.Closer

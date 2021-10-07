@@ -218,6 +218,28 @@ func (client *bigQueryClient) UpdateTransactionsSchema(ctx context.Context) erro
 	return nil
 }
 
+func (client *bigQueryClient) GetBlocksSchema(ctx context.Context) (*bigquery.Schema, error) {
+	table := client.client.Dataset(client.datasetID).Table(client.blocksTableID)
+
+	metadata, err := table.Metadata(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &metadata.Schema, nil
+}
+
+func (client *bigQueryClient) GetTransactionSchema(ctx context.Context) (*bigquery.Schema, error) {
+	table := client.client.Dataset(client.datasetID).Table(client.txnsTableID)
+
+	metadata, err := table.Metadata(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &metadata.Schema, nil
+}
+
 func (client *bigQueryClient) Close() error {
 	return client.client.Close()
 }
