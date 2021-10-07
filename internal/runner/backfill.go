@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cpurta/harmony-one-to-bigquery/internal/clients/bigquery"
 	bq "github.com/cpurta/harmony-one-to-bigquery/internal/clients/bigquery/client"
@@ -104,7 +105,7 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 	// transactions table check
 
 	runner.logger.Debug("checking if transactions table exists")
-	if txnsExists := runner.bigQueryClient.BlocksTableExists(ctx); !txnsExists {
+	if txnsExists := runner.bigQueryClient.TransactionsTableExists(ctx); !txnsExists {
 		runner.logger.Info(fmt.Sprintf("%s does not exist, attempting to create", txnsTable))
 
 		if err = runner.bigQueryClient.CreateTransactionsTable(ctx); err != nil {
@@ -248,8 +249,11 @@ func (runner *BackfillRunner) retryFailedBlocks() {
 				continue
 			}
 
+			time.Sleep(time.Duration(retryBlock.RetryCount) * time.Millisecond * 100)
+
 			runner.logger.Debug("attempting to re-insert a failed block")
 			if err := runner.bigQueryClient.InsertBlock(retryBlock.Block, ctx); err != nil {
+				runner.logger.Debug("retry block insert failed, putting back into retry channel")
 				retryBlock.RetryCount++
 				retryBlock.Error = err
 				runner.retryBlockChan <- retryBlock
@@ -272,9 +276,12 @@ func (runner *BackfillRunner) retryFailedTxns() {
 				continue
 			}
 
+			time.Sleep(time.Duration(retryTxn.RetryCount) * time.Millisecond * 100)
+
 			runner.logger.Debug("attempting to re-insert a failed transaction")
 			txns := []*model.Transaction{retryTxn.Transaction}
 			if err := runner.bigQueryClient.InsertTransactions(txns, ctx); err != nil {
+				runner.logger.Debug("retry transaction insert failed, putting back into retry channel")
 				retryTxn.RetryCount++
 				retryTxn.Error = err
 				runner.retryTxnChan <- retryTxn
