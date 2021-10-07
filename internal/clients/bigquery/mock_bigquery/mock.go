@@ -107,10 +107,10 @@ func (mr *MockBigQueryClientMockRecorder) CreateTransactionsTable(ctx interface{
 }
 
 // GetBlocksSchema mocks base method.
-func (m *MockBigQueryClient) GetBlocksSchema(ctx context.Context) (*bigquery.Schema, error) {
+func (m *MockBigQueryClient) GetBlocksSchema(ctx context.Context) (bigquery.Schema, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetBlocksSchema", ctx)
-	ret0, _ := ret[0].(*bigquery.Schema)
+	ret0, _ := ret[0].(bigquery.Schema)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -137,10 +137,10 @@ func (mr *MockBigQueryClientMockRecorder) GetMostRecentBlockNumber(ctx interface
 }
 
 // GetTransactionSchema mocks base method.
-func (m *MockBigQueryClient) GetTransactionSchema(ctx context.Context) (*bigquery.Schema, error) {
+func (m *MockBigQueryClient) GetTransactionSchema(ctx context.Context) (bigquery.Schema, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetTransactionSchema", ctx)
-	ret0, _ := ret[0].(*bigquery.Schema)
+	ret0, _ := ret[0].(bigquery.Schema)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

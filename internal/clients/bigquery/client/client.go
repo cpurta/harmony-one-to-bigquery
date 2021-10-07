@@ -180,7 +180,7 @@ func (client *bigQueryClient) InsertTransactions(transactions []*model.Transacti
 	return nil
 }
 
-func (client *bigQueryClient) GetBlocksSchema(ctx context.Context) (*bigquery.Schema, error) {
+func (client *bigQueryClient) GetBlocksSchema(ctx context.Context) (bigquery.Schema, error) {
 	table := client.client.Dataset(client.datasetID).Table(client.blocksTableID)
 
 	metadata, err := table.Metadata(ctx)
@@ -188,10 +188,10 @@ func (client *bigQueryClient) GetBlocksSchema(ctx context.Context) (*bigquery.Sc
 		return nil, err
 	}
 
-	return &metadata.Schema, nil
+	return metadata.Schema, nil
 }
 
-func (client *bigQueryClient) GetTransactionSchema(ctx context.Context) (*bigquery.Schema, error) {
+func (client *bigQueryClient) GetTransactionSchema(ctx context.Context) (bigquery.Schema, error) {
 	table := client.client.Dataset(client.datasetID).Table(client.txnsTableID)
 
 	metadata, err := table.Metadata(ctx)
@@ -199,7 +199,7 @@ func (client *bigQueryClient) GetTransactionSchema(ctx context.Context) (*bigque
 		return nil, err
 	}
 
-	return &metadata.Schema, nil
+	return metadata.Schema, nil
 }
 
 func (client *bigQueryClient) Close() error {

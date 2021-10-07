@@ -118,7 +118,7 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 		return err
 	}
 
-	if !util.SchemasEqual(schema.TransactionsTableSchema, *txnsSchema) {
+	if !util.SchemasEqual(schema.TransactionsTableSchema, txnsSchema) {
 		return fmt.Errorf("%s table schema does not match schema.TransactionsTableSchema, please fix schema in GCP console and re-run", txnsTable)
 	}
 
@@ -139,7 +139,7 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 		return err
 	}
 
-	if !util.SchemasEqual(schema.BlocksTableSchema, *blocksSchema) {
+	if !util.SchemasEqual(schema.BlocksTableSchema, blocksSchema) {
 		return fmt.Errorf("%s table schema does not match schema.TransactionsTableSchema, please fix schema in GCP console and re-run", blocksTable)
 	}
 
