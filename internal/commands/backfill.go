@@ -76,7 +76,7 @@ func BackfillCommand() *cli.Command {
 				Name:        "max-retries",
 				EnvVars:     []string{"MAX_RETRIES"},
 				Usage:       "the maximum number to times a block or transaction will be attempted to be inserted into their respective tables",
-				Destination: &backfillRunner.Concurrency,
+				Destination: &backfillRunner.MaxRetries,
 				Value:       10,
 			},
 		},

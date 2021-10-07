@@ -22,7 +22,5 @@ type BigQueryClient interface {
 	InsertTransactions(transactions []*model.Transaction, ctx context.Context) error
 	GetBlocksSchema(ctx context.Context) (*bigquery.Schema, error)
 	GetTransactionSchema(ctx context.Context) (*bigquery.Schema, error)
-	UpdateBlocksSchema(ctx context.Context) error
-	UpdateTransactionsSchema(ctx context.Context) error
 	io.Closer
 }

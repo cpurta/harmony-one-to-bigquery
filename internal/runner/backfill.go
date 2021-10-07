@@ -19,6 +19,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const MAX_CHAN_LENGTH = 1000
+
 type BackfillRunner struct {
 	NodeURL              string
 	GoogleCloudProjectID string
@@ -58,8 +60,8 @@ func (runner *BackfillRunner) Run(cli *cli.Context) error {
 		}
 	}
 
-	runner.retryBlockChan = make(chan *model.RetryBlock)
-	runner.retryTxnChan = make(chan *model.RetryTransaction)
+	runner.retryBlockChan = make(chan *model.RetryBlock, MAX_CHAN_LENGTH)
+	runner.retryTxnChan = make(chan *model.RetryTransaction, MAX_CHAN_LENGTH)
 
 	if runner.Concurrency <= 0 {
 		return errors.New("must specify concurrency > 0")
@@ -117,11 +119,7 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 	}
 
 	if !util.SchemasEqual(schema.TransactionsTableSchema, *txnsSchema) {
-		runner.logger.Debug("attempting to update transactions table schema")
-		if err := runner.bigQueryClient.UpdateTransactionsSchema(ctx); err != nil {
-			runner.logger.Error(fmt.Sprintf("unable to update %s schema", txnsTable), zap.Error(err))
-			return err
-		}
+		return fmt.Errorf("%s table schema does not match schema.TransactionsTableSchema, please fix schema in GCP console and re-run", txnsTable)
 	}
 
 	// blocks table check
@@ -142,11 +140,7 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 	}
 
 	if !util.SchemasEqual(schema.BlocksTableSchema, *blocksSchema) {
-		runner.logger.Debug("attempting to update blocks table schema")
-		if err := runner.bigQueryClient.UpdateBlocksSchema(ctx); err != nil {
-			runner.logger.Error(fmt.Sprintf("unable to update %s schema", blocksTable), zap.Error(err))
-			return err
-		}
+		return fmt.Errorf("%s table schema does not match schema.TransactionsTableSchema, please fix schema in GCP console and re-run", blocksTable)
 	}
 
 	// blocks and transaction processing
@@ -173,7 +167,8 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 		go runner.backfillBlocks(ctx, counter, wg, backfillUpTo)
 	}
 
-	go runner.retryFailedBlocksAndTxns()
+	go runner.retryFailedBlocks()
+	go runner.retryFailedTxns()
 
 	wg.Wait()
 
@@ -239,14 +234,15 @@ func (runner *BackfillRunner) backfillBlocks(ctx context.Context, counter *count
 	runner.logger.Info("backfill block go routine finished")
 }
 
-func (runner *BackfillRunner) retryFailedBlocksAndTxns() {
+func (runner *BackfillRunner) retryFailedBlocks() {
+	runner.logger.Debug("starting routine to retry failed blocks")
+
 	for {
 		ctx := context.Background()
 
 		select {
 		// attempt to re-insert failed blocks
 		case retryBlock := <-runner.retryBlockChan:
-
 			if retryBlock.RetryCount >= runner.MaxRetries {
 				runner.logger.Error("block was unable to be inserted after max attempts", zap.Error(retryBlock.Error))
 				continue
@@ -258,6 +254,17 @@ func (runner *BackfillRunner) retryFailedBlocksAndTxns() {
 				retryBlock.Error = err
 				runner.retryBlockChan <- retryBlock
 			}
+		}
+	}
+}
+
+func (runner *BackfillRunner) retryFailedTxns() {
+	runner.logger.Debug("starting routine to retry failed transactions")
+
+	for {
+		ctx := context.Background()
+
+		select {
 		// attempt to re-insert failed transactions
 		case retryTxn := <-runner.retryTxnChan:
 			if retryTxn.RetryCount >= runner.MaxRetries {
