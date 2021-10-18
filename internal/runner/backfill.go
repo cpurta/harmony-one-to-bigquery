@@ -154,8 +154,13 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 
 	runner.logger.Info("received current block header on hmy blockchain", zap.Int64("hmy_block_number", header.BlockNumber))
 
-	if runner.StartBlock != 0 && runner.StartBlock > header.BlockNumber {
-		return errors.New("start block provided is greater than the most recent block number in Harmony One blockchain")
+	if runner.StartBlock != 0 {
+		if runner.StartBlock > header.BlockNumber {
+			return errors.New("start block provided is greater than the most recent block number in Harmony One blockchain")
+		}
+		if runner.StartBlock < 0 {
+			return errors.New("start block must be a positive number")
+		}
 	}
 
 	if runner.StartBlock != 0 {
