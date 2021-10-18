@@ -65,6 +65,13 @@ func BackfillCommand() *cli.Command {
 				Destination: &backfillRunner.LogLevel,
 				Value:       "info",
 			},
+			&cli.Int64Flag{
+				Name:        "start-block",
+				EnvVars:     []string{"START_BLOCK"},
+				Usage:       "start backfill from a specific block, if the most start block excends the most recent synced block it will fail",
+				Destination: &backfillRunner.StartBlock,
+				Value:       0,
+			},
 			&cli.IntFlag{
 				Name:        "concurrency",
 				EnvVars:     []string{"CONCURRENCY"},

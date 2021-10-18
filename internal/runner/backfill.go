@@ -33,6 +33,7 @@ type BackfillRunner struct {
 	LogLevel             string
 	Concurrency          int
 	MaxRetries           int
+	StartBlock           int64
 	harmonyClient        harmony.HarmonyClient
 	bigQueryClient       bigquery.BigQueryClient
 	retryBlockChan       chan *model.RetryBlock
@@ -153,7 +154,13 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 
 	runner.logger.Info("received current block header on hmy blockchain", zap.Int64("hmy_block_number", header.BlockNumber))
 
-	if counter.Count, err = runner.bigQueryClient.GetMostRecentBlockNumber(ctx); err != nil {
+	if runner.StartBlock != 0 && runner.StartBlock > header.BlockNumber {
+		return errors.New("start block provided is greater than the most recent block number in Harmony One blockchain")
+	}
+
+	if runner.StartBlock != 0 {
+		counter.Count = runner.StartBlock
+	} else if counter.Count, err = runner.bigQueryClient.GetMostRecentBlockNumber(ctx); err != nil {
 		runner.logger.Error("unable to get the most recent block number stored in BigQuery", zap.Error(err))
 		return err
 	}
@@ -224,6 +231,14 @@ func (runner *BackfillRunner) backfillBlocks(ctx context.Context, counter *count
 			runner.retryBlockChan <- model.NewRetryBlock(block, err)
 		}
 
+		if len(block.Transactions) == 0 {
+			blockNumberLogger.Info("no transactions in block")
+			continue
+		}
+
+		numTxns := len(block.Transactions)
+
+		blockNumberLogger.Debug("inserting transactions", zap.Int("num_txns", numTxns))
 		if err = runner.bigQueryClient.InsertTransactions(block.Transactions, ctx); err != nil {
 			blockNumberLogger.Error("unable to insert block transactions into BigQuery", zap.Error(err))
 			for _, txn := range block.Transactions {

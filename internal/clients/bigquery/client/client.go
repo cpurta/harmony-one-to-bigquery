@@ -173,8 +173,10 @@ func (client *bigQueryClient) TransactionsTableExists(ctx context.Context) bool 
 func (client *bigQueryClient) InsertTransactions(transactions []*model.Transaction, ctx context.Context) error {
 	inserter := client.client.Dataset(client.datasetID).Table(client.txnsTableID).Inserter()
 
-	if err := inserter.Put(ctx, transactions); err != nil {
-		return err
+	for _, txn := range transactions {
+		if err := inserter.Put(ctx, txn); err != nil {
+			return err
+		}
 	}
 
 	return nil

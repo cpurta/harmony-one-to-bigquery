@@ -17,24 +17,24 @@ type RetryTransaction struct {
 }
 
 type Transaction struct {
-	BlockHash        string
-	BlockNumber      string
-	EthHash          string
-	From             string
-	Gas              string
-	GasPrice         string
-	Hash             string
-	Input            string
-	Nonce            string
-	R                string
-	S                string
-	ShardID          int64
-	Timestamp        string
-	To               string
-	ToShardID        int64
-	TransactionIndex string
-	V                string
-	Value            string
+	BlockHash        string `json:"blockHash"`
+	BlockNumber      string `json:"blockNumber"`
+	EthHash          string `json:"ethHash"`
+	From             string `json:"from"`
+	Gas              string `json:"gas"`
+	GasPrice         string `json:"gasPrice"`
+	Hash             string `json:"hash"`
+	Input            string `json:"input"`
+	Nonce            string `json:"nonce"`
+	R                string `json:"r"`
+	S                string `json:"s"`
+	ShardID          int64  `json:"shardID"`
+	Timestamp        string `json:"timestamp"`
+	To               string `json:"to"`
+	ToShardID        int64  `json:"toShardID"`
+	TransactionIndex string `json:"transactionIndex"`
+	V                string `json:"v"`
+	Value            string `json:"value"`
 }
 
 func (txn *Transaction) Save() (map[string]bigquery.Value, string, error) {

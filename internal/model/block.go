@@ -17,25 +17,25 @@ type RetryBlock struct {
 }
 
 type Block struct {
-	Difficulty       int64
-	Epoch            string
-	ExtraData        string
-	GasLimit         string
-	GasUsed          string
-	Hash             string
-	LogBloom         string
-	Miner            string
-	MixHash          string
-	Nonce            int64
-	Number           string
-	ParentHash       string
-	ReceiptsRoot     string
-	Size             string
-	StateRoot        string
-	Timestamp        string
-	Transactions     []*Transaction
-	TransactionsRoot string
-	ViewID           string
+	Difficulty       int64          `json:"difficulty"`
+	Epoch            string         `json:"epoch"`
+	ExtraData        string         `json:"extraData"`
+	GasLimit         string         `json:"gasLimit"`
+	GasUsed          string         `json:"gasUsed"`
+	Hash             string         `json:"hash"`
+	LogBloom         string         `json:"logBloom"`
+	Miner            string         `json:"miner"`
+	MixHash          string         `json:"mixHash"`
+	Nonce            int64          `json:"nonce"`
+	Number           string         `json:"number"`
+	ParentHash       string         `json:"parentHash"`
+	ReceiptsRoot     string         `json:"receiptsRoot"`
+	Size             string         `json:"size"`
+	StateRoot        string         `json:"stateRoot"`
+	Timestamp        string         `json:"timestamp"`
+	Transactions     []*Transaction `json:"transactions"`
+	TransactionsRoot string         `json:"transactionsRoot"`
+	ViewID           string         `json:"viewID"`
 }
 
 func (block *Block) Save() (map[string]bigquery.Value, string, error) {
