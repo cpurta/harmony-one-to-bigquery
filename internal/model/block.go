@@ -17,25 +17,25 @@ type RetryBlock struct {
 }
 
 type Block struct {
-	Difficulty       int64          `json:"difficulty"`
-	Epoch            string         `json:"epoch"`
-	ExtraData        string         `json:"extraData"`
-	GasLimit         string         `json:"gasLimit"`
-	GasUsed          string         `json:"gasUsed"`
-	Hash             string         `json:"hash"`
-	LogBloom         string         `json:"logBloom"`
-	Miner            string         `json:"miner"`
-	MixHash          string         `json:"mixHash"`
-	Nonce            int64          `json:"nonce"`
-	Number           string         `json:"number"`
-	ParentHash       string         `json:"parentHash"`
-	ReceiptsRoot     string         `json:"receiptsRoot"`
-	Size             string         `json:"size"`
-	StateRoot        string         `json:"stateRoot"`
-	Timestamp        string         `json:"timestamp"`
-	Transactions     []*Transaction `json:"transactions"`
-	TransactionsRoot string         `json:"transactionsRoot"`
-	ViewID           string         `json:"viewID"`
+	Difficulty       int64          `json:"difficulty" bigquery:"difficulty"`
+	Epoch            string         `json:"epoch" bigquery:"epoch"`
+	ExtraData        string         `json:"extraData" bigquery:"extraData"`
+	GasLimit         string         `json:"gasLimit" bigquery:"gasLimit"`
+	GasUsed          string         `json:"gasUsed" bigquery:"gasUsed"`
+	Hash             string         `json:"hash" bigquery:"hash"`
+	LogBloom         string         `json:"logBloom" bigquery:"logBloom"`
+	Miner            string         `json:"miner" bigquery:"miner"`
+	MixHash          string         `json:"mixHash" bigquery:"mixHash"`
+	Nonce            int64          `json:"nonce" bigquery:"nonce"`
+	Number           string         `json:"number" bigquery:"number"`
+	ParentHash       string         `json:"parentHash" bigquery:"parentHash"`
+	ReceiptsRoot     string         `json:"receiptsRoot" bigquery:"receiptsRoot"`
+	Size             string         `json:"size" bigquery:"size"`
+	StateRoot        string         `json:"stateRoot" bigquery:"stateRoot"`
+	Timestamp        string         `json:"timestamp" bigquery:"timestamp"`
+	Transactions     []*Transaction `json:"transactions" bigquery:"transactions"`
+	TransactionsRoot string         `json:"transactionsRoot" bigquery:"transactionsRoot"`
+	ViewID           string         `json:"viewID" bigquery:"viewID"`
 }
 
 func (block *Block) Save() (map[string]bigquery.Value, string, error) {

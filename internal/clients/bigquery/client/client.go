@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -204,6 +205,57 @@ func (client *bigQueryClient) GetTransactionSchema(ctx context.Context) (bigquer
 	return metadata.Schema, nil
 }
 
+func (client *bigQueryClient) GetBlock(ctx context.Context, blockNumber int64) (*model.Block, error) {
+	var (
+		query   = fmt.Sprintf("SELECT * FROM `%s.%s.%s` WHERE number = %s LIMIT 1;", client.projectID, client.datasetID, client.blocksTableID, intToHex(blockNumber))
+		bqQuery = client.client.Query(query)
+		job     *bigquery.Job
+		status  *bigquery.JobStatus
+		it      *bigquery.RowIterator
+		err     error
+	)
+
+	if job, err = bqQuery.Run(ctx); err != nil {
+		return nil, err
+	}
+
+	if status, err = job.Wait(ctx); err != nil {
+		return nil, err
+	}
+
+	if err = status.Err(); err != nil {
+		return nil, err
+	}
+
+	if it, err = job.Read(ctx); err != nil {
+		return nil, err
+	}
+
+	for {
+		var row model.Block
+
+		err = it.Next(&row)
+		if err == iterator.Done {
+			break
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		if number, err := hexToInt(row.Number); err == nil && number == blockNumber {
+			return &row, nil
+		}
+	}
+
+	return nil, nil
+}
+
+func (client *bigQueryClient) GetTransactions(ctx context.Context, blockNumber int64) ([]*model.Transaction, error) {
+	// TODO: implement
+	return nil, errors.New("not implemented")
+}
+
 func (client *bigQueryClient) Close() error {
 	return client.client.Close()
 }
@@ -213,4 +265,8 @@ func hexToInt(hexString string) (int64, error) {
 	str = strings.Replace(str, "0X", "", -1)
 
 	return strconv.ParseInt(str, 16, 64)
+}
+
+func intToHex(i int64) string {
+	return fmt.Sprintf("0x%x", i)
 }
