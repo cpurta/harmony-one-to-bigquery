@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -137,7 +136,7 @@ func (client *bigQueryClient) BlocksTableExists(ctx context.Context) bool {
 	return true
 }
 
-func (client *bigQueryClient) InsertBlock(block *model.Block, ctx context.Context) error {
+func (client *bigQueryClient) InsertBlock(ctx context.Context, block *model.Block) error {
 	inserter := client.client.Dataset(client.datasetID).Table(client.blocksTableID).Inserter()
 
 	if err := inserter.Put(ctx, block); err != nil {
@@ -171,7 +170,7 @@ func (client *bigQueryClient) TransactionsTableExists(ctx context.Context) bool 
 	return true
 }
 
-func (client *bigQueryClient) InsertTransactions(transactions []*model.Transaction, ctx context.Context) error {
+func (client *bigQueryClient) InsertTransactions(ctx context.Context, transactions []*model.Transaction) error {
 	inserter := client.client.Dataset(client.datasetID).Table(client.txnsTableID).Inserter()
 
 	for _, txn := range transactions {
@@ -207,7 +206,7 @@ func (client *bigQueryClient) GetTransactionSchema(ctx context.Context) (bigquer
 
 func (client *bigQueryClient) GetBlock(ctx context.Context, blockNumber int64) (*model.Block, error) {
 	var (
-		query   = fmt.Sprintf("SELECT * FROM `%s.%s.%s` WHERE number = %s LIMIT 1;", client.projectID, client.datasetID, client.blocksTableID, intToHex(blockNumber))
+		query   = fmt.Sprintf("SELECT * FROM `%s.%s.%s` WHERE number = '%s' LIMIT 1;", client.projectID, client.datasetID, client.blocksTableID, intToHex(blockNumber))
 		bqQuery = client.client.Query(query)
 		job     *bigquery.Job
 		status  *bigquery.JobStatus
@@ -252,8 +251,50 @@ func (client *bigQueryClient) GetBlock(ctx context.Context, blockNumber int64) (
 }
 
 func (client *bigQueryClient) GetTransactions(ctx context.Context, blockNumber int64) ([]*model.Transaction, error) {
-	// TODO: implement
-	return nil, errors.New("not implemented")
+	var (
+		transactions = make([]*model.Transaction, 0)
+		query        = fmt.Sprintf("SELECT * FROM `%s.%s.%s` WHERE blockNumber = '%s' LIMIT 1;", client.projectID, client.datasetID, client.txnsTableID, intToHex(blockNumber))
+		bqQuery      = client.client.Query(query)
+		job          *bigquery.Job
+		status       *bigquery.JobStatus
+		it           *bigquery.RowIterator
+		err          error
+	)
+
+	if job, err = bqQuery.Run(ctx); err != nil {
+		return nil, err
+	}
+
+	if status, err = job.Wait(ctx); err != nil {
+		return nil, err
+	}
+
+	if err = status.Err(); err != nil {
+		return nil, err
+	}
+
+	if it, err = job.Read(ctx); err != nil {
+		return nil, err
+	}
+
+	for {
+		var row model.Transaction
+
+		err = it.Next(&row)
+		if err == iterator.Done {
+			break
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		if number, err := hexToInt(row.BlockNumber); err == nil && number == blockNumber {
+			transactions = append(transactions, &row)
+		}
+	}
+
+	return transactions, nil
 }
 
 func (client *bigQueryClient) Close() error {

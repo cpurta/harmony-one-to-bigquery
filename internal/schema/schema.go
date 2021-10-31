@@ -7,7 +7,7 @@ import (
 var (
 	BlocksTableSchema = bigquery.Schema{
 		{Name: "blockHash", Type: bigquery.StringFieldType},
-		{Name: "difficulty", Type: bigquery.StringFieldType},
+		{Name: "difficulty", Type: bigquery.IntegerFieldType},
 		{Name: "epoch", Type: bigquery.StringFieldType},
 		{Name: "extraData", Type: bigquery.StringFieldType},
 		{Name: "gasLimit", Type: bigquery.StringFieldType},

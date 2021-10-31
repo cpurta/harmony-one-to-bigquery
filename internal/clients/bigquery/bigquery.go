@@ -15,11 +15,11 @@ type BigQueryClient interface {
 	ProjectDatasetExists(ctx context.Context) bool
 	CreateBlocksTable(ctx context.Context) error
 	BlocksTableExists(ctx context.Context) bool
-	InsertBlock(block *model.Block, ctx context.Context) error
+	InsertBlock(ctx context.Context, block *model.Block) error
 	CreateProjectDataset(ctx context.Context) error
 	CreateTransactionsTable(ctx context.Context) error
 	TransactionsTableExists(ctx context.Context) bool
-	InsertTransactions(transactions []*model.Transaction, ctx context.Context) error
+	InsertTransactions(ctx context.Context, transactions []*model.Transaction) error
 	GetBlocksSchema(ctx context.Context) (bigquery.Schema, error)
 	GetTransactionSchema(ctx context.Context) (bigquery.Schema, error)
 	GetBlock(ctx context.Context, blockNumber int64) (*model.Block, error)

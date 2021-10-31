@@ -106,6 +106,21 @@ func (mr *MockBigQueryClientMockRecorder) CreateTransactionsTable(ctx interface{
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTransactionsTable", reflect.TypeOf((*MockBigQueryClient)(nil).CreateTransactionsTable), ctx)
 }
 
+// GetBlock mocks base method.
+func (m *MockBigQueryClient) GetBlock(ctx context.Context, blockNumber int64) (*model.Block, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBlock", ctx, blockNumber)
+	ret0, _ := ret[0].(*model.Block)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBlock indicates an expected call of GetBlock.
+func (mr *MockBigQueryClientMockRecorder) GetBlock(ctx, blockNumber interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlock", reflect.TypeOf((*MockBigQueryClient)(nil).GetBlock), ctx, blockNumber)
+}
+
 // GetBlocksSchema mocks base method.
 func (m *MockBigQueryClient) GetBlocksSchema(ctx context.Context) (bigquery.Schema, error) {
 	m.ctrl.T.Helper()
@@ -151,32 +166,47 @@ func (mr *MockBigQueryClientMockRecorder) GetTransactionSchema(ctx interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransactionSchema", reflect.TypeOf((*MockBigQueryClient)(nil).GetTransactionSchema), ctx)
 }
 
-// InsertBlock mocks base method.
-func (m *MockBigQueryClient) InsertBlock(block *model.Block, ctx context.Context) error {
+// GetTransactions mocks base method.
+func (m *MockBigQueryClient) GetTransactions(ctx context.Context, blockNumber int64) ([]*model.Transaction, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InsertBlock", block, ctx)
+	ret := m.ctrl.Call(m, "GetTransactions", ctx, blockNumber)
+	ret0, _ := ret[0].([]*model.Transaction)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTransactions indicates an expected call of GetTransactions.
+func (mr *MockBigQueryClientMockRecorder) GetTransactions(ctx, blockNumber interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransactions", reflect.TypeOf((*MockBigQueryClient)(nil).GetTransactions), ctx, blockNumber)
+}
+
+// InsertBlock mocks base method.
+func (m *MockBigQueryClient) InsertBlock(ctx context.Context, block *model.Block) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InsertBlock", ctx, block)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // InsertBlock indicates an expected call of InsertBlock.
-func (mr *MockBigQueryClientMockRecorder) InsertBlock(block, ctx interface{}) *gomock.Call {
+func (mr *MockBigQueryClientMockRecorder) InsertBlock(ctx, block interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertBlock", reflect.TypeOf((*MockBigQueryClient)(nil).InsertBlock), block, ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertBlock", reflect.TypeOf((*MockBigQueryClient)(nil).InsertBlock), ctx, block)
 }
 
 // InsertTransactions mocks base method.
-func (m *MockBigQueryClient) InsertTransactions(transactions []*model.Transaction, ctx context.Context) error {
+func (m *MockBigQueryClient) InsertTransactions(ctx context.Context, transactions []*model.Transaction) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InsertTransactions", transactions, ctx)
+	ret := m.ctrl.Call(m, "InsertTransactions", ctx, transactions)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // InsertTransactions indicates an expected call of InsertTransactions.
-func (mr *MockBigQueryClientMockRecorder) InsertTransactions(transactions, ctx interface{}) *gomock.Call {
+func (mr *MockBigQueryClientMockRecorder) InsertTransactions(ctx, transactions interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertTransactions", reflect.TypeOf((*MockBigQueryClient)(nil).InsertTransactions), transactions, ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertTransactions", reflect.TypeOf((*MockBigQueryClient)(nil).InsertTransactions), ctx, transactions)
 }
 
 // ProjectDatasetExists mocks base method.

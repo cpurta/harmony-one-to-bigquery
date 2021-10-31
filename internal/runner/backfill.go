@@ -193,8 +193,10 @@ func (runner *BackfillRunner) backfillBlocks(ctx context.Context, counter *count
 
 	for {
 		var (
-			block *model.Block
-			err   error
+			bigQueryBlock *model.Block
+			bigQueryTxns  []*model.Transaction
+			block         *model.Block
+			err           error
 		)
 
 		counter.Lock.Lock()
@@ -207,6 +209,14 @@ func (runner *BackfillRunner) backfillBlocks(ctx context.Context, counter *count
 		}
 
 		blockNumberLogger := runner.logger.With(zap.Int64("block_number", currentBlock))
+
+		if bigQueryBlock, err = runner.bigQueryClient.GetBlock(ctx, currentBlock); err != nil {
+			blockNumberLogger.Error("unable to check if block exists in BigQuery", zap.Error(err))
+		}
+
+		if bigQueryTxns, err = runner.bigQueryClient.GetTransactions(ctx, currentBlock); err != nil {
+			blockNumberLogger.Error("unable to check if block transactions exists in BigQuery", zap.Error(err))
+		}
 
 		if block, err = runner.harmonyClient.GetBlockByNumber(currentBlock); err != nil {
 			if strings.Contains(err.Error(), "-32000") {
@@ -231,9 +241,11 @@ func (runner *BackfillRunner) backfillBlocks(ctx context.Context, counter *count
 			continue
 		}
 
-		if err = runner.bigQueryClient.InsertBlock(block, ctx); err != nil {
-			blockNumberLogger.Error("unable to insert block into BigQuery", zap.Error(err))
-			runner.retryBlockChan <- model.NewRetryBlock(block, err)
+		if bigQueryBlock == nil {
+			if err = runner.bigQueryClient.InsertBlock(ctx, block); err != nil {
+				blockNumberLogger.Error("unable to insert block into BigQuery", zap.Error(err))
+				runner.retryBlockChan <- model.NewRetryBlock(block, err)
+			}
 		}
 
 		if len(block.Transactions) == 0 {
@@ -243,11 +255,13 @@ func (runner *BackfillRunner) backfillBlocks(ctx context.Context, counter *count
 
 		numTxns := len(block.Transactions)
 
-		blockNumberLogger.Debug("inserting transactions", zap.Int("num_txns", numTxns))
-		if err = runner.bigQueryClient.InsertTransactions(block.Transactions, ctx); err != nil {
-			blockNumberLogger.Error("unable to insert block transactions into BigQuery", zap.Error(err))
-			for _, txn := range block.Transactions {
-				runner.retryTxnChan <- model.NewRetryTransaction(txn, err)
+		if len(bigQueryTxns) == 0 {
+			blockNumberLogger.Debug("inserting transactions", zap.Int("num_txns", numTxns))
+			if err = runner.bigQueryClient.InsertTransactions(ctx, block.Transactions); err != nil {
+				blockNumberLogger.Error("unable to insert block transactions into BigQuery", zap.Error(err))
+				for _, txn := range block.Transactions {
+					runner.retryTxnChan <- model.NewRetryTransaction(txn, err)
+				}
 			}
 		}
 	}
@@ -272,7 +286,7 @@ func (runner *BackfillRunner) retryFailedBlocks() {
 			time.Sleep(time.Duration(retryBlock.RetryCount) * time.Millisecond * 100)
 
 			runner.logger.Debug("attempting to re-insert a failed block")
-			if err := runner.bigQueryClient.InsertBlock(retryBlock.Block, ctx); err != nil {
+			if err := runner.bigQueryClient.InsertBlock(ctx, retryBlock.Block); err != nil {
 				runner.logger.Debug("retry block insert failed, putting back into retry channel")
 				retryBlock.RetryCount++
 				retryBlock.Error = err
@@ -300,7 +314,7 @@ func (runner *BackfillRunner) retryFailedTxns() {
 
 			runner.logger.Debug("attempting to re-insert a failed transaction")
 			txns := []*model.Transaction{retryTxn.Transaction}
-			if err := runner.bigQueryClient.InsertTransactions(txns, ctx); err != nil {
+			if err := runner.bigQueryClient.InsertTransactions(ctx, txns); err != nil {
 				runner.logger.Debug("retry transaction insert failed, putting back into retry channel")
 				retryTxn.RetryCount++
 				retryTxn.Error = err
