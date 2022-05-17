@@ -34,6 +34,7 @@ type BackfillRunner struct {
 	Concurrency          int
 	MaxRetries           int
 	StartBlock           int64
+	WaitTime             time.Duration
 	harmonyClient        harmony.HarmonyClient
 	bigQueryClient       bigquery.BigQueryClient
 	retryBlockChan       chan *model.RetryBlock
@@ -80,9 +81,8 @@ func (runner *BackfillRunner) Run(cli *cli.Context) error {
 
 func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 	var (
-		header       *model.Header
-		backfillUpTo = int64(0)
-		counter      = &counter{
+		header  *model.Header
+		counter = &counter{
 			Lock: &sync.Mutex{},
 		}
 		blocksTable = fmt.Sprintf("`%s.%s.%s`", runner.GoogleCloudProjectID, runner.DatasetID, runner.BlocksTableID)
@@ -172,12 +172,10 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 
 	runner.logger.Info("received most recent block number stored in BigQuery", zap.Int64("bq_block_number", counter.Count))
 
-	backfillUpTo = header.BlockNumber
-
 	for i := 0; i < runner.Concurrency; i++ {
 		wg.Add(1)
 		runner.logger.Info("spawning backfillBlocks go routine", zap.Int("routine_number", i))
-		go runner.backfillBlocks(ctx, counter, wg, backfillUpTo)
+		go runner.backfillBlocks(ctx, counter, wg)
 	}
 
 	go runner.retryFailedBlocks()
@@ -188,13 +186,14 @@ func (runner *BackfillRunner) backfillFromLatest(ctx context.Context) error {
 	return nil
 }
 
-func (runner *BackfillRunner) backfillBlocks(ctx context.Context, counter *counter, wg *sync.WaitGroup, endBlock int64) {
+func (runner *BackfillRunner) backfillBlocks(ctx context.Context, counter *counter, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for {
 		var (
 			bigQueryBlock *model.Block
 			bigQueryTxns  []*model.Transaction
+			header        *model.Header
 			block         *model.Block
 			err           error
 		)
@@ -204,8 +203,15 @@ func (runner *BackfillRunner) backfillBlocks(ctx context.Context, counter *count
 		counter.Count += 1
 		counter.Lock.Unlock()
 
-		if currentBlock >= endBlock {
-			break
+		if header, err = runner.harmonyClient.GetLatestHeader(); err != nil {
+			runner.logger.Error("unable to get the most recent block header from the harmony blockchain client", zap.Error(err))
+			return
+		}
+
+		if currentBlock >= header.BlockNumber {
+			runner.logger.Info("backfill is up to date with block header, will attempt to wait and retry", zap.Int64("hmy_block_number", header.BlockNumber))
+			time.Sleep(runner.WaitTime)
+			continue
 		}
 
 		blockNumberLogger := runner.logger.With(zap.Int64("block_number", currentBlock))
@@ -275,24 +281,22 @@ func (runner *BackfillRunner) retryFailedBlocks() {
 	for {
 		ctx := context.Background()
 
-		select {
-		// attempt to re-insert failed blocks
-		case retryBlock := <-runner.retryBlockChan:
-			if retryBlock.RetryCount >= runner.MaxRetries {
-				runner.logger.Error("block was unable to be inserted after max attempts", zap.Error(retryBlock.Error))
-				continue
-			}
-
-			time.Sleep(time.Duration(retryBlock.RetryCount) * time.Millisecond * 100)
-
-			runner.logger.Debug("attempting to re-insert a failed block")
-			if err := runner.bigQueryClient.InsertBlock(ctx, retryBlock.Block); err != nil {
-				runner.logger.Debug("retry block insert failed, putting back into retry channel")
-				retryBlock.RetryCount++
-				retryBlock.Error = err
-				runner.retryBlockChan <- retryBlock
-			}
+		retryBlock := <-runner.retryBlockChan
+		if retryBlock.RetryCount >= runner.MaxRetries {
+			runner.logger.Error("block was unable to be inserted after max attempts", zap.Error(retryBlock.Error))
+			continue
 		}
+
+		time.Sleep(time.Duration(retryBlock.RetryCount) * time.Millisecond * 100)
+
+		runner.logger.Debug("attempting to re-insert a failed block")
+		if err := runner.bigQueryClient.InsertBlock(ctx, retryBlock.Block); err != nil {
+			runner.logger.Debug("retry block insert failed, putting back into retry channel")
+			retryBlock.RetryCount++
+			retryBlock.Error = err
+			runner.retryBlockChan <- retryBlock
+		}
+
 	}
 }
 
@@ -302,24 +306,22 @@ func (runner *BackfillRunner) retryFailedTxns() {
 	for {
 		ctx := context.Background()
 
-		select {
-		// attempt to re-insert failed transactions
-		case retryTxn := <-runner.retryTxnChan:
-			if retryTxn.RetryCount >= runner.MaxRetries {
-				runner.logger.Error("transaction was unable to be inserted after max attempts", zap.Error(retryTxn.Error))
-				continue
-			}
-
-			time.Sleep(time.Duration(retryTxn.RetryCount) * time.Millisecond * 100)
-
-			runner.logger.Debug("attempting to re-insert a failed transaction")
-			txns := []*model.Transaction{retryTxn.Transaction}
-			if err := runner.bigQueryClient.InsertTransactions(ctx, txns); err != nil {
-				runner.logger.Debug("retry transaction insert failed, putting back into retry channel")
-				retryTxn.RetryCount++
-				retryTxn.Error = err
-				runner.retryTxnChan <- retryTxn
-			}
+		retryTxn := <-runner.retryTxnChan
+		if retryTxn.RetryCount >= runner.MaxRetries {
+			runner.logger.Error("transaction was unable to be inserted after max attempts", zap.Error(retryTxn.Error))
+			continue
 		}
+
+		time.Sleep(time.Duration(retryTxn.RetryCount) * time.Millisecond * 100)
+
+		runner.logger.Debug("attempting to re-insert a failed transaction")
+		txns := []*model.Transaction{retryTxn.Transaction}
+		if err := runner.bigQueryClient.InsertTransactions(ctx, txns); err != nil {
+			runner.logger.Debug("retry transaction insert failed, putting back into retry channel")
+			retryTxn.RetryCount++
+			retryTxn.Error = err
+			runner.retryTxnChan <- retryTxn
+		}
+
 	}
 }
