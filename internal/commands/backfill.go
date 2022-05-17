@@ -1,6 +1,8 @@
 package command
 
 import (
+	"time"
+
 	"github.com/cpurta/harmony-one-to-bigquery/internal/runner"
 	"github.com/urfave/cli/v2"
 )
@@ -85,6 +87,13 @@ func BackfillCommand() *cli.Command {
 				Usage:       "the maximum number to times a block or transaction will be attempted to be inserted into their respective tables",
 				Destination: &backfillRunner.MaxRetries,
 				Value:       10,
+			},
+			&cli.DurationFlag{
+				Name:        "wait-time",
+				EnvVars:     []string{"WAIT_TIME"},
+				Usage:       "the amount of time to wait before querying for the most recent block",
+				Destination: &backfillRunner.WaitTime,
+				Value:       time.Duration(time.Second * 30),
 			},
 		},
 		Action: backfillRunner.Run,
